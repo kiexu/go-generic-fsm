@@ -5,16 +5,17 @@ import (
 	"testing"
 )
 
-func TestStatusNotExistErr(t *testing.T) {
+func TestStateNotExistErr(t *testing.T) {
 
-	t.Run("StatusNotExistErr", func(t *testing.T) {
-		_, err := descFac.NewG().NextEdge(2333, payEvent)
+	t.Run("StateNotExistErr", func(t *testing.T) {
+		g, _ := descFac.NewG()
+		_, err := g.NextEdge(2333, payEvent)
 		if err == nil {
-			t.Errorf("TestStatusNotExistErr||err=nil")
+			t.Errorf("TestStateNotExistErr||err=nil")
 			return
 		}
-		if _, ok := err.(*StatusNotExistErr[nodeStatus]); !ok {
-			t.Errorf("TestStatusNotExistErr||type=%v||want=%v", reflect.TypeOf(err), "StatusNotExistErr")
+		if _, ok := err.(*StateNotExistErr[nodeState]); !ok {
+			t.Errorf("TestStateNotExistErr||type=%v||want=%v", reflect.TypeOf(err), "StateNotExistErr")
 			return
 		}
 	})
@@ -22,7 +23,8 @@ func TestStatusNotExistErr(t *testing.T) {
 
 func TestInvalidEventErr(t *testing.T) {
 
-	testFSM := NewFsm[nodeStatus, eventVal, edgeVal, nodeVal](descFac.NewG(), initial)
+	g, _ := descFac.NewG()
+	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
 
 	t.Run("InvalidEventErr", func(t *testing.T) {
 		_, err := testFSM.Trigger("not exist event")
@@ -30,7 +32,7 @@ func TestInvalidEventErr(t *testing.T) {
 			t.Errorf("InvalidEventErr||err=nil")
 			return
 		}
-		if _, ok := err.(*InvalidEventErr[nodeStatus, eventVal]); !ok {
+		if _, ok := err.(*InvalidEventErr[nodeState, eventVal]); !ok {
 			t.Errorf("TestInvalidEventErr||type=%v||want=%v", reflect.TypeOf(err), "InvalidEventErr")
 			return
 		}

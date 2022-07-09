@@ -7,20 +7,20 @@ import (
 type (
 	// FSM the FSM itself
 	FSM[T, S comparable, U, V any] struct {
-		g          *Graph[T, S, U, V]     // Graph is config of FSM. It should be immutable
-		prevStatus T                      // Last status
-		currStatus T                      // Now status
-		currEdge   *Edge[T, S, U, V]      // For advanced usages
-		callbacks  *CallBacks[T, S, U, V] // Callbacks
-		noSync     bool                   // If true, this FSM will not be thread-safe
-		mutex      sync.Mutex             // RW-lock
+		g         *Graph[T, S, U, V]     // Graph is config of FSM. It should be immutable
+		prevState T                      // Last state
+		currState T                      // Now state
+		currEdge  *Edge[T, S, U, V]      // For advanced usages
+		callbacks *CallBacks[T, S, U, V] // Callbacks
+		noSync    bool                   // If true, this FSM will not be thread-safe
+		mutex     sync.Mutex             // RW-lock
 	}
 
 	// CallBacks do something while eventE is triggering
 	CallBacks[T, S comparable, U, V any] struct {
-		beforeStatusChange func(*Event[T, S, U, V]) error
-		afterStatusChange  func(*Event[T, S, U, V]) error
-		onDefer            func(*Event[T, S, U, V], error)
+		beforeStateChange func(*Event[T, S, U, V]) error
+		afterStateChange  func(*Event[T, S, U, V]) error
+		onDefer           func(*Event[T, S, U, V], error)
 	}
 
 	// Event packaging an eventE
@@ -33,14 +33,14 @@ type (
 )
 
 // NewFsm new a tread-safe FSM
-func NewFsm[T, S comparable, U, V any](g *Graph[T, S, U, V], initStatus T) *FSM[T, S, U, V] {
+func NewFsm[T, S comparable, U, V any](g *Graph[T, S, U, V], initState T) *FSM[T, S, U, V] {
 	return &FSM[T, S, U, V]{
-		g:          g,
-		currStatus: initStatus,
+		g:         g,
+		currState: initState,
 	}
 }
 
-// Trigger Trigger an eventE by eventE value
+// Trigger To trigger an eventE by eventE value
 func (f *FSM[T, S, U, V]) Trigger(eventVal S, args ...interface{}) (e *Event[T, S, U, V], err error) {
 
 	if !f.noSync {
@@ -62,7 +62,7 @@ func (f *FSM[T, S, U, V]) Trigger(eventVal S, args ...interface{}) (e *Event[T, 
 	}()
 
 	// Try to get next one edge
-	edge, err := f.g.NextEdge(f.currStatus, eventVal)
+	edge, err := f.g.NextEdge(f.currState, eventVal)
 	if err != nil {
 		return e, err
 	}
@@ -71,21 +71,21 @@ func (f *FSM[T, S, U, V]) Trigger(eventVal S, args ...interface{}) (e *Event[T, 
 	e.eventE = edge
 	f.currEdge = edge
 
-	// Before status change
-	if f.callbacks != nil && f.callbacks.beforeStatusChange != nil {
-		err = f.callbacks.beforeStatusChange(e)
+	// Before state change
+	if f.callbacks != nil && f.callbacks.beforeStateChange != nil {
+		err = f.callbacks.beforeStateChange(e)
 		if err != nil {
 			return e, err
 		}
 	}
 
-	// Assign old and new status
-	f.prevStatus = f.currStatus
-	f.currStatus = f.g.VertexByIdx(edge.toV.idx).statusVal
+	// Assign old and new state
+	f.prevState = f.currState
+	f.currState = f.g.VertexByIdx(edge.toV.idx).stateVal
 
-	// After status change
-	if f.callbacks != nil && f.callbacks.afterStatusChange != nil {
-		err = f.callbacks.afterStatusChange(e)
+	// After state change
+	if f.callbacks != nil && f.callbacks.afterStateChange != nil {
+		err = f.callbacks.afterStateChange(e)
 		if err != nil {
 			return e, err
 		}
@@ -94,21 +94,35 @@ func (f *FSM[T, S, U, V]) Trigger(eventVal S, args ...interface{}) (e *Event[T, 
 	return e, nil
 }
 
-// PeekStatuses Peek an edge by eventE value on given status
-func (f *FSM[T, S, U, V]) PeekStatuses(status T, eventVal S) []T {
+// CanTrigger Whether given eventVal can trigger event
+func (f *FSM[T, S, U, V]) CanTrigger(eventVal S) bool {
+	_, ok := f.PeekState(f.CurrState(), eventVal)
+	return ok
+}
+
+// PeekState Peek an edge by eventE value on given state
+func (f *FSM[T, S, U, V]) PeekState(state T, eventVal S) (T, bool) {
 
 	// Try to get next one edge
-	edges, err := f.g.NextEdges(status, eventVal)
+	edge, err := f.g.NextEdge(state, eventVal)
 	if err != nil {
-		return make([]T, 0)
+		var resp T
+		return resp, false
 	}
 
-	resp := make([]T, len(edges), len(edges))
-	for i, e := range edges {
-		resp[i] = e.ToV().StatusVal()
-	}
+	return edge.ToV().StateVal(), true
+}
 
-	return resp
+// CanMigrate
+func (f *FSM[T, S, U, V]) CanMigrate(eventVal S) bool {
+	// todo
+	return false
+}
+
+// MigratePathTo
+func (f *FSM[T, S, U, V]) MigratePathTo(eventVal S) bool {
+	// todo
+	return false
 }
 
 // FSM Getter And Setter
@@ -117,6 +131,7 @@ func (f *FSM[T, S, U, V]) G() *Graph[T, S, U, V] {
 	return f.g
 }
 
+// SetG Not recommended
 func (f *FSM[T, S, U, V]) SetG(g *Graph[T, S, U, V]) {
 	if !f.noSync {
 		f.mutex.Lock()
@@ -125,32 +140,32 @@ func (f *FSM[T, S, U, V]) SetG(g *Graph[T, S, U, V]) {
 	f.g = g
 }
 
-func (f *FSM[T, S, U, V]) PrevStatus() T {
+func (f *FSM[T, S, U, V]) PrevState() T {
 	if !f.noSync {
 		f.mutex.Lock()
 		defer f.mutex.Unlock()
 	}
-	return f.prevStatus
+	return f.prevState
 }
 
-// CurrStatus Get current status
-func (f *FSM[T, S, U, V]) CurrStatus() T {
+// CurrState Get current state
+func (f *FSM[T, S, U, V]) CurrState() T {
 	if !f.noSync {
 		f.mutex.Lock()
 		defer f.mutex.Unlock()
 	}
-	return f.currStatus
+	return f.currState
 }
 
-// ForceSetCurrStatus prevStatus will be overwritten
+// ForceSetCurrState prevState will be overwritten
 // it will not modify f.currEdge. not recommended
-func (f *FSM[T, S, U, V]) ForceSetCurrStatus(currStatus T) {
+func (f *FSM[T, S, U, V]) ForceSetCurrState(currState T) {
 	if !f.noSync {
 		f.mutex.Lock()
 		defer f.mutex.Unlock()
 	}
-	f.prevStatus = f.currStatus
-	f.currStatus = currStatus
+	f.prevState = f.currState
+	f.currState = currState
 }
 
 func (f *FSM[T, S, U, V]) CurrEdge() *Edge[T, S, U, V] {
@@ -181,20 +196,20 @@ func (f *FSM[T, S, U, V]) SetNoSync(noSync bool) {
 
 // CallBacks Getter And Setter
 
-func (c *CallBacks[T, S, U, V]) BeforeStatusChange() func(*Event[T, S, U, V]) error {
-	return c.beforeStatusChange
+func (c *CallBacks[T, S, U, V]) BeforeStateChange() func(*Event[T, S, U, V]) error {
+	return c.beforeStateChange
 }
 
-func (c *CallBacks[T, S, U, V]) SetBeforeStatusChange(beforeStatusChange func(*Event[T, S, U, V]) error) {
-	c.beforeStatusChange = beforeStatusChange
+func (c *CallBacks[T, S, U, V]) SetBeforeStateChange(beforeStateChange func(*Event[T, S, U, V]) error) {
+	c.beforeStateChange = beforeStateChange
 }
 
-func (c *CallBacks[T, S, U, V]) AfterStatusChange() func(*Event[T, S, U, V]) error {
-	return c.afterStatusChange
+func (c *CallBacks[T, S, U, V]) AfterStateChange() func(*Event[T, S, U, V]) error {
+	return c.afterStateChange
 }
 
-func (c *CallBacks[T, S, U, V]) SetAfterStatusChange(afterStatusChange func(*Event[T, S, U, V]) error) {
-	c.afterStatusChange = afterStatusChange
+func (c *CallBacks[T, S, U, V]) SetAfterStateChange(afterStateChange func(*Event[T, S, U, V]) error) {
+	c.afterStateChange = afterStateChange
 }
 
 func (c *CallBacks[T, S, U, V]) OnDefer() func(*Event[T, S, U, V], error) {
@@ -207,6 +222,7 @@ func (c *CallBacks[T, S, U, V]) SetOnDefer(onDefer func(*Event[T, S, U, V], erro
 
 // Event Getter And Setter
 
+// FSM In concurrent usage, please use FromState and ToState after Trigger to get state, not this method
 func (e *Event[T, S, U, V]) FSM() *FSM[T, S, U, V] {
 	return e.fSM
 }
@@ -238,18 +254,18 @@ func (e *Event[T, S, U, V]) ToV() *Vertex[T, V] {
 	return nil
 }
 
-func (e *Event[T, S, U, V]) FromStatus() (resp T) {
+func (e *Event[T, S, U, V]) FromState() (resp T) {
 	fromV := e.FromV()
 	if fromV != nil {
-		return fromV.statusVal
+		return fromV.stateVal
 	}
 	return resp
 }
 
-func (e *Event[T, S, U, V]) ToStatus() (resp T) {
+func (e *Event[T, S, U, V]) ToState() (resp T) {
 	toV := e.ToV()
 	if toV != nil {
-		return toV.statusVal
+		return toV.stateVal
 	}
 	return resp
 }

@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	// Status
+	// State
 	initial    = iota // Ready to take an order. Order can be initial when last order done or canceled
 	paid              // Order is paid and wait to deliver
 	delivering        // Courier delivering
@@ -22,61 +22,61 @@ const (
 )
 
 type (
-	nodeStatus int                                                                              // node status type in testing
-	eventVal   string                                                                           // eventE type in testing
-	nodeVal    int                                                                              // node value type in testing
-	edgeVal    func(*Event[nodeStatus, eventVal, edgeVal, nodeVal], *wrapper, *testing.T) error // edge value type in testing
+	nodeState int                                                                             // node state type in testing
+	eventVal  string                                                                          // eventE type in testing
+	nodeVal   int                                                                             // node value type in testing
+	edgeVal   func(*Event[nodeState, eventVal, edgeVal, nodeVal], *wrapper, *testing.T) error // edge value type in testing
 
 	wrapper struct {
-		currEvent  eventVal
-		fromStatus nodeStatus
-		toStatus   nodeStatus
+		currEvent eventVal
+		fromState nodeState
+		toState   nodeState
 	}
 )
 
 var (
-	commonEdgeVal edgeVal = func(e *Event[nodeStatus, eventVal, edgeVal, nodeVal], w *wrapper, t *testing.T) error {
+	commonEdgeVal edgeVal = func(e *Event[nodeState, eventVal, edgeVal, nodeVal], w *wrapper, t *testing.T) error {
 		w.currEvent = e.EventE().eventVal
-		w.fromStatus = e.EventE().FromV().StatusVal()
-		w.toStatus = e.EventE().ToV().StatusVal()
-		t.Logf("commonEdgeVal||event=%v||from=%v||to=%v\n", w.currEvent, w.fromStatus, w.toStatus)
+		w.fromState = e.EventE().FromV().StateVal()
+		w.toState = e.EventE().ToV().StateVal()
+		t.Logf("commonEdgeVal||event=%v||from=%v||to=%v\n", w.currEvent, w.fromState, w.toState)
 		return nil
 	}
 
-	descFac = &DefGFactory[nodeStatus, eventVal, edgeVal, nodeVal]{
-		DescList: []*DescCell[nodeStatus, eventVal, edgeVal, nodeVal]{
+	descFac = &DefGFactory[nodeState, eventVal, edgeVal, nodeVal]{
+		DescList: []*DescCell[nodeState, eventVal, edgeVal, nodeVal]{
 			{
 				EventVal:     payEvent,
-				FromStatus:   []nodeStatus{initial},
-				ToStatus:     paid,
+				FromState:    []nodeState{initial},
+				ToState:      paid,
 				EdgeStoreVal: commonEdgeVal,
 			},
 			{
 				EventVal:     deliverEvent,
-				FromStatus:   []nodeStatus{paid},
-				ToStatus:     delivering,
+				FromState:    []nodeState{paid},
+				ToState:      delivering,
 				EdgeStoreVal: commonEdgeVal,
 			},
 			{
 				EventVal:     receiveEvent,
-				FromStatus:   []nodeStatus{delivering},
-				ToStatus:     done,
+				FromState:    []nodeState{delivering},
+				ToState:      done,
 				EdgeStoreVal: commonEdgeVal,
 			},
 			{
 				EventVal:     cancelEvent,
-				FromStatus:   []nodeStatus{paid, delivering},
-				ToStatus:     canceled,
+				FromState:    []nodeState{paid, delivering},
+				ToState:      canceled,
 				EdgeStoreVal: commonEdgeVal,
 			},
 			{
 				EventVal:     readyEvent,
-				FromStatus:   []nodeStatus{done, canceled},
-				ToStatus:     initial,
+				FromState:    []nodeState{done, canceled},
+				ToState:      initial,
 				EdgeStoreVal: commonEdgeVal,
 			},
 		},
-		VertexValMap: map[nodeStatus]nodeVal{
+		VertexValMap: map[nodeState]nodeVal{
 			initial:    initial,
 			paid:       paid,
 			delivering: delivering,
@@ -91,7 +91,8 @@ func TestMain(m *testing.M) {
 }
 
 func BenchmarkFSM_Event(b *testing.B) {
-	testFSM := NewFsm[nodeStatus, eventVal, edgeVal, nodeVal](descFac.NewG(), initial)
+	g, _ := descFac.NewG()
+	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
 	tests := generateNonErrorTests()
 	tl := len(tests)
 	var err error
@@ -109,9 +110,10 @@ func BenchmarkFSM_Event(b *testing.B) {
 func TestFSM_Event_No_Error(t *testing.T) {
 
 	w := &wrapper{}
-	testFSM := NewFsm[nodeStatus, eventVal, edgeVal, nodeVal](descFac.NewG(), initial)
-	testFSM.SetCallbacks(&CallBacks[nodeStatus, eventVal, edgeVal, nodeVal]{
-		afterStatusChange: func(e *Event[nodeStatus, eventVal, edgeVal, nodeVal]) error {
+	g, _ := descFac.NewG()
+	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
+	testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
+		afterStateChange: func(e *Event[nodeState, eventVal, edgeVal, nodeVal]) error {
 			return e.EventE().storeVal(e, w, t) // a sample to run in-config callback functions
 		},
 	})
@@ -137,9 +139,10 @@ func TestFSM_Event_No_Error(t *testing.T) {
 func TestFSM_Event_Contain_Error(t *testing.T) {
 
 	w := &wrapper{}
-	testFSM := NewFsm[nodeStatus, eventVal, edgeVal, nodeVal](descFac.NewG(), initial)
-	testFSM.SetCallbacks(&CallBacks[nodeStatus, eventVal, edgeVal, nodeVal]{
-		afterStatusChange: func(e *Event[nodeStatus, eventVal, edgeVal, nodeVal]) error {
+	g, _ := descFac.NewG()
+	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
+	testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
+		afterStateChange: func(e *Event[nodeState, eventVal, edgeVal, nodeVal]) error {
 			return e.EventE().storeVal(e, w, t)
 		},
 	})
@@ -175,99 +178,99 @@ func generateNonErrorTests() []struct {
 		{
 			payEvent,
 			&wrapper{
-				currEvent:  payEvent,
-				fromStatus: initial,
-				toStatus:   paid,
+				currEvent: payEvent,
+				fromState: initial,
+				toState:   paid,
 			},
 			false,
 		},
 		{
 			deliverEvent,
 			&wrapper{
-				currEvent:  deliverEvent,
-				fromStatus: paid,
-				toStatus:   delivering,
+				currEvent: deliverEvent,
+				fromState: paid,
+				toState:   delivering,
 			},
 			false,
 		},
 		{
 			receiveEvent,
 			&wrapper{
-				currEvent:  receiveEvent,
-				fromStatus: delivering,
-				toStatus:   done,
+				currEvent: receiveEvent,
+				fromState: delivering,
+				toState:   done,
 			},
 			false,
 		},
 		{
 			readyEvent,
 			&wrapper{
-				currEvent:  readyEvent,
-				fromStatus: done,
-				toStatus:   initial,
+				currEvent: readyEvent,
+				fromState: done,
+				toState:   initial,
 			},
 			false,
 		},
 		{
 			payEvent,
 			&wrapper{
-				currEvent:  payEvent,
-				fromStatus: initial,
-				toStatus:   paid,
+				currEvent: payEvent,
+				fromState: initial,
+				toState:   paid,
 			},
 			false,
 		},
 		{
 			cancelEvent,
 			&wrapper{
-				currEvent:  cancelEvent,
-				fromStatus: paid,
-				toStatus:   canceled,
+				currEvent: cancelEvent,
+				fromState: paid,
+				toState:   canceled,
 			},
 			false,
 		},
 		{
 			readyEvent,
 			&wrapper{
-				currEvent:  readyEvent,
-				fromStatus: canceled,
-				toStatus:   initial,
+				currEvent: readyEvent,
+				fromState: canceled,
+				toState:   initial,
 			},
 			false,
 		},
 		{
 			payEvent,
 			&wrapper{
-				currEvent:  payEvent,
-				fromStatus: initial,
-				toStatus:   paid,
+				currEvent: payEvent,
+				fromState: initial,
+				toState:   paid,
 			},
 			false,
 		},
 		{
 			deliverEvent,
 			&wrapper{
-				currEvent:  deliverEvent,
-				fromStatus: paid,
-				toStatus:   delivering,
+				currEvent: deliverEvent,
+				fromState: paid,
+				toState:   delivering,
 			},
 			false,
 		},
 		{
 			cancelEvent,
 			&wrapper{
-				currEvent:  cancelEvent,
-				fromStatus: delivering,
-				toStatus:   canceled,
+				currEvent: cancelEvent,
+				fromState: delivering,
+				toState:   canceled,
 			},
 			false,
 		},
 		{
 			readyEvent,
 			&wrapper{
-				currEvent:  readyEvent,
-				fromStatus: canceled,
-				toStatus:   initial,
+				currEvent: readyEvent,
+				fromState: canceled,
+				toState:   initial,
 			},
 			false,
 		},
@@ -288,9 +291,9 @@ func genTestsContainError() []struct {
 		{
 			payEvent,
 			&wrapper{
-				currEvent:  payEvent,
-				fromStatus: initial,
-				toStatus:   paid,
+				currEvent: payEvent,
+				fromState: initial,
+				toState:   paid,
 			},
 			false,
 		},
@@ -302,18 +305,18 @@ func genTestsContainError() []struct {
 		{
 			deliverEvent,
 			&wrapper{
-				currEvent:  deliverEvent,
-				fromStatus: paid,
-				toStatus:   delivering,
+				currEvent: deliverEvent,
+				fromState: paid,
+				toState:   delivering,
 			},
 			false,
 		},
 		{
 			receiveEvent,
 			&wrapper{
-				currEvent:  receiveEvent,
-				fromStatus: delivering,
-				toStatus:   done,
+				currEvent: receiveEvent,
+				fromState: delivering,
+				toState:   done,
 			},
 			false,
 		},
@@ -321,6 +324,52 @@ func genTestsContainError() []struct {
 	return tests
 }
 
-func TestFSM_PeekStatuses(t *testing.T) {
-	// todo
+func TestFSM_CanTrigger(t *testing.T) {
+
+	g, _ := descFac.NewG()
+	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
+
+	type args[T, S comparable] struct {
+		eventVal  S
+		forceNext T
+	}
+	tests := []struct {
+		name string
+		args args[nodeState, eventVal]
+		want bool
+	}{
+
+		{
+			name: "ready",
+			args: args[nodeState, eventVal]{
+				eventVal:  payEvent,
+				forceNext: paid,
+			},
+			want: true,
+		},
+		{
+			name: "force done",
+			args: args[nodeState, eventVal]{
+				eventVal:  receiveEvent,
+				forceNext: paid,
+			},
+			want: false,
+		},
+		{
+			name: "deliver",
+			args: args[nodeState, eventVal]{
+				eventVal:  deliverEvent,
+				forceNext: done,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := testFSM.CanTrigger(tt.args.eventVal); got != tt.want {
+				t.Errorf("CanTrigger() = %v, want %v", got, tt.want)
+			}
+			testFSM.ForceSetCurrState(tt.args.forceNext)
+		})
+	}
 }
