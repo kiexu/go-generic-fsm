@@ -1,5 +1,10 @@
 package gfsm
 
+import (
+	"github.com/kiexu/go-generic-collection"
+	"github.com/kiexu/go-generic-collection/hashset"
+)
+
 type (
 	// DefGFactory Default factory with basic config struct
 	// As a regular FSM, {stateVal, eventVal} need to be unique
@@ -34,16 +39,14 @@ func (fac *DefGFactory[T, S, U, V]) NewG() (*Graph[T, S, U, V], error) {
 	}
 
 	// Init itoV
-	stateValSet := make(map[T]struct{})
+	var stateValSet gcollection.Set[T] = hashset.NewHashSet[T]()
 	for _, desc := range fac.DescList {
-		if _, ok := stateValSet[desc.ToState]; !ok {
+		if ok := stateValSet.Add(desc.ToState); ok {
 			g.itoV = append(g.itoV, fac.newV(desc.ToState))
-			stateValSet[desc.ToState] = struct{}{}
 		}
 		for _, fs := range desc.FromState {
-			if _, ok := stateValSet[fs]; !ok {
+			if ok := stateValSet.Add(fs); ok {
 				g.itoV = append(g.itoV, fac.newV(fs))
-				stateValSet[fs] = struct{}{}
 			}
 		}
 	}
@@ -57,7 +60,7 @@ func (fac *DefGFactory[T, S, U, V]) NewG() (*Graph[T, S, U, V], error) {
 
 	// initial adj
 	vl := len(g.itoV)
-	stateEventSet := make(map[stateEvent[T, S]]struct{})
+	var stateEventSet gcollection.Set[stateEvent[T, S]] = hashset.NewHashSet[stateEvent[T, S]]()
 	g.adj = make([]*EdgeCollection[T, S, U, V], vl, vl)
 	for _, d := range fac.DescList {
 		toIdx := g.VertexByState(d.ToState).idx
@@ -73,7 +76,7 @@ func (fac *DefGFactory[T, S, U, V]) NewG() (*Graph[T, S, U, V], error) {
 				stateVal: s,
 				eventVal: d.EventVal,
 			}
-			if _, ok := stateEventSet[uniqSE]; ok {
+			if ok := stateEventSet.Add(uniqSE); !ok {
 				return nil, &DuplicateStateAndEventErr[T, S]{State: s, Event: d.EventVal}
 			}
 			e := &Edge[T, S, U, V]{
@@ -83,7 +86,6 @@ func (fac *DefGFactory[T, S, U, V]) NewG() (*Graph[T, S, U, V], error) {
 				storeVal: d.EdgeStoreVal,
 			}
 			g.adj[fromIdx].addE(e)
-			stateEventSet[uniqSE] = struct{}{}
 		}
 	}
 

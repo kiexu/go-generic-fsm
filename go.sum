@@ -1,0 +1,14 @@
+github.com/kiexu/go-generic-collection v0.0.0-20220710070024-a996efa73d71 h1:ZSn67PvjfaeNfSAvlP5s1BpvKcjFgAuBeZuyIL2Ffjk=
+github.com/kiexu/go-generic-collection v0.0.0-20220710070024-a996efa73d71/go.mod h1:XtxWfqRsdIwU4hqJc0G+17WkAf3KHRD4RA1EdrYIXQs=
+github.com/kiexu/go-generic-collection v0.0.0-20220710172845-ef43e17a0053 h1:ABpkP4BbbgpMcvToExFONeF2rivlBzpOnrbp+ELBGfI=
+github.com/kiexu/go-generic-collection v0.0.0-20220710172845-ef43e17a0053/go.mod h1:2Q7BZWAkl4qxTo+jS3BZ3e+DliAp5MW/uYH/Swla7kA=
+github.com/yuin/goldmark v1.4.13 h1:fVcFKWvrslecOb/tg+Cc05dkeYx540o0FuFt3nUVDoE=
+github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
+golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 h1:6zppjxzCulZykYSLyVDYbneBfbaBIQPYMevg0bEwv2s=
+golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4/go.mod h1:jJ57K6gSWd91VN4djpZkiMVwK6gcyfeH4XE8wZrZaV4=
+golang.org/x/net v0.0.0-20220708220712-1185a9018129 h1:vucSRfWwTsoXro7P+3Cjlr6flUMtzCwzlvkxEQtHHB0=
+golang.org/x/net v0.0.0-20220708220712-1185a9018129/go.mod h1:XRhObCWvk6IyKnWLug+ECip1KBveYUHfp+8e9klMJ9c=
+golang.org/x/sys v0.0.0-20220708085239-5a0f0661e09d h1:/m5NbqQelATgoSPVC2Z23sR4kVNokFwDDyWh/3rGY+I=
+golang.org/x/sys v0.0.0-20220708085239-5a0f0661e09d/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/tools v0.1.11 h1:loJ25fNOEhSXfHrpoGj91eCUThwdNX6u24rO1xnNteY=
+golang.org/x/tools v0.1.11/go.mod h1:SgwaegtQh8clINPpECJMqnxLv9I09HLqnW3RMqW0CA4=
