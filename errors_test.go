@@ -24,7 +24,7 @@ func TestStateNotExistErr(t *testing.T) {
 func TestInvalidEventErr(t *testing.T) {
 
 	g, _ := descFac.NewG()
-	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
+	testFSM := NewFsmByG[nodeState, eventVal, edgeVal, nodeVal](g, initial)
 
 	t.Run("InvalidEventErr", func(t *testing.T) {
 		_, err := testFSM.Trigger("not exist event")

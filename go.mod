@@ -1,5 +1,10 @@
-module kiexu/go-generic-fsm
+module github.com/kiexu/go-generic-fsm
 
 go 1.18
 
-require github.com/kiexu/go-generic-collection v0.0.0-20220710172845-ef43e17a0053 // indirect
+require (
+	github.com/kiexu/go-generic-collection v0.0.0-20220711145405-015808f4ad61
+	gotest.tools/v3 v3.3.0
+)
+
+require github.com/google/go-cmp v0.5.5 // indirect

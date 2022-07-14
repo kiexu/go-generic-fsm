@@ -6,19 +6,19 @@ import (
 )
 
 type (
-	// DefGFactory Default factory with basic config struct
+	// DefConfig Default factory with basic config struct
 	// As a regular FSM, {stateVal, eventVal} need to be unique
-	DefGFactory[T, S comparable, U, V any] struct {
+	DefConfig[T, S comparable, U, V any] struct {
 		DescList     []*DescCell[T, S, U, V] // Required. Describe FSM graph
-		VertexValMap map[T]V                 // Optional. Store custom value in vertex
+		StatusValMap map[T]V                 // Optional. Store custom value in abstract status
 	}
 
 	// DescCell Describe one eventE
 	DescCell[T, S comparable, U, V any] struct {
-		EventVal     S
-		FromState    []T
-		ToState      T
-		EdgeStoreVal U // Every edge's EdgeStoreVal in this cell will be assigned this field
+		EventVal      S
+		FromState     []T
+		ToState       T
+		EventStoreVal U // Every edge's EventStoreVal in this cell will be assigned this field
 	}
 
 	// stateEvent Deduplication helper
@@ -29,10 +29,10 @@ type (
 )
 
 // Ensure interface implement
-var _ GraphFactory[struct{}, struct{}, struct{}, struct{}] = new(DefGFactory[struct{}, struct{}, struct{}, struct{}])
+var _ GraphConfig[struct{}, struct{}, struct{}, struct{}] = new(DefConfig[struct{}, struct{}, struct{}, struct{}])
 
 // NewG New a Graph
-func (fac *DefGFactory[T, S, U, V]) NewG() (*Graph[T, S, U, V], error) {
+func (fac *DefConfig[T, S, U, V]) NewG() (*Graph[T, S, U, V], error) {
 
 	g := &Graph[T, S, U, V]{
 		stoV: make(map[T]*Vertex[T, V]),
@@ -83,7 +83,7 @@ func (fac *DefGFactory[T, S, U, V]) NewG() (*Graph[T, S, U, V], error) {
 				fromV:    g.itoV[fromIdx],
 				toV:      g.itoV[toIdx],
 				eventVal: d.EventVal,
-				storeVal: d.EdgeStoreVal,
+				storeVal: d.EventStoreVal,
 			}
 			g.adj[fromIdx].addE(e)
 		}
@@ -93,11 +93,11 @@ func (fac *DefGFactory[T, S, U, V]) NewG() (*Graph[T, S, U, V], error) {
 }
 
 // newV Without idx, autofill storeVal
-func (fac *DefGFactory[T, S, U, V]) newV(state T) *Vertex[T, V] {
+func (fac *DefConfig[T, S, U, V]) newV(state T) *Vertex[T, V] {
 	genV := &Vertex[T, V]{
 		stateVal: state,
 	}
-	if storeVal, ok := fac.VertexValMap[state]; ok {
+	if storeVal, ok := fac.StatusValMap[state]; ok {
 		genV.storeVal = storeVal
 	}
 	return genV
