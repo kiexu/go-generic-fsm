@@ -3,7 +3,7 @@ module github.com/kiexu/go-generic-fsm
 go 1.18
 
 require (
-	github.com/kiexu/go-generic-collection v0.0.0-20220711145405-015808f4ad61
+	github.com/kiexu/go-generic-collection v0.3.0
 	gotest.tools/v3 v3.3.0
 )
 

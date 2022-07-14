@@ -6,6 +6,8 @@ github.com/kiexu/go-generic-collection v0.0.0-20220710172845-ef43e17a0053 h1:ABp
 github.com/kiexu/go-generic-collection v0.0.0-20220710172845-ef43e17a0053/go.mod h1:2Q7BZWAkl4qxTo+jS3BZ3e+DliAp5MW/uYH/Swla7kA=
 github.com/kiexu/go-generic-collection v0.0.0-20220711145405-015808f4ad61 h1:+fa3r81ClTlfBcsy+OzRdSxhOmrA4XoqMeXvM3NPwKA=
 github.com/kiexu/go-generic-collection v0.0.0-20220711145405-015808f4ad61/go.mod h1:2Q7BZWAkl4qxTo+jS3BZ3e+DliAp5MW/uYH/Swla7kA=
+github.com/kiexu/go-generic-collection v0.3.0 h1:i0oXhfq6n1wTi99nSaJfi0oedJh4hY1dEodqlwS58t4=
+github.com/kiexu/go-generic-collection v0.3.0/go.mod h1:2Q7BZWAkl4qxTo+jS3BZ3e+DliAp5MW/uYH/Swla7kA=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.4.13 h1:fVcFKWvrslecOb/tg+Cc05dkeYx540o0FuFt3nUVDoE=
