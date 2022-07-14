@@ -43,40 +43,40 @@ var (
 		return nil
 	}
 
-	descFac = &DefGFactory[nodeState, eventVal, edgeVal, nodeVal]{
+	descFac = &DefConfig[nodeState, eventVal, edgeVal, nodeVal]{
 		DescList: []*DescCell[nodeState, eventVal, edgeVal, nodeVal]{
 			{
-				EventVal:     payEvent,
-				FromState:    []nodeState{initial},
-				ToState:      paid,
-				EdgeStoreVal: commonEdgeVal,
+				EventVal:      payEvent,
+				FromState:     []nodeState{initial},
+				ToState:       paid,
+				EventStoreVal: commonEdgeVal,
 			},
 			{
-				EventVal:     deliverEvent,
-				FromState:    []nodeState{paid},
-				ToState:      delivering,
-				EdgeStoreVal: commonEdgeVal,
+				EventVal:      deliverEvent,
+				FromState:     []nodeState{paid},
+				ToState:       delivering,
+				EventStoreVal: commonEdgeVal,
 			},
 			{
-				EventVal:     receiveEvent,
-				FromState:    []nodeState{delivering},
-				ToState:      done,
-				EdgeStoreVal: commonEdgeVal,
+				EventVal:      receiveEvent,
+				FromState:     []nodeState{delivering},
+				ToState:       done,
+				EventStoreVal: commonEdgeVal,
 			},
 			{
-				EventVal:     cancelEvent,
-				FromState:    []nodeState{paid, delivering},
-				ToState:      canceled,
-				EdgeStoreVal: commonEdgeVal,
+				EventVal:      cancelEvent,
+				FromState:     []nodeState{paid, delivering},
+				ToState:       canceled,
+				EventStoreVal: commonEdgeVal,
 			},
 			{
-				EventVal:     readyEvent,
-				FromState:    []nodeState{done, canceled},
-				ToState:      initial,
-				EdgeStoreVal: commonEdgeVal,
+				EventVal:      readyEvent,
+				FromState:     []nodeState{done, canceled},
+				ToState:       initial,
+				EventStoreVal: commonEdgeVal,
 			},
 		},
-		VertexValMap: map[nodeState]nodeVal{
+		StatusValMap: map[nodeState]nodeVal{
 			initial:    initial,
 			paid:       paid,
 			delivering: delivering,
@@ -84,7 +84,65 @@ var (
 			canceled:   canceled,
 		},
 	}
+
+	nonLoopFac = &DefConfig[nodeState, eventVal, edgeVal, nodeVal]{
+		DescList: []*DescCell[nodeState, eventVal, edgeVal, nodeVal]{
+			{
+				EventVal:      payEvent,
+				FromState:     []nodeState{initial, paid}, // self loop
+				ToState:       paid,
+				EventStoreVal: commonEdgeVal,
+			},
+			{
+				EventVal:      deliverEvent,
+				FromState:     []nodeState{paid},
+				ToState:       delivering,
+				EventStoreVal: commonEdgeVal,
+			},
+			{
+				EventVal:      receiveEvent,
+				FromState:     []nodeState{delivering},
+				ToState:       done,
+				EventStoreVal: commonEdgeVal,
+			},
+			{
+				EventVal:      cancelEvent,
+				FromState:     []nodeState{paid, delivering},
+				ToState:       canceled,
+				EventStoreVal: commonEdgeVal,
+			},
+		},
+	}
 )
+
+var demoFac = &DefConfig[string, string, string, NA]{
+	DescList: []*DescCell[string, string, string, NA]{
+		{
+			EventVal:      "payEvent",
+			FromState:     []string{"initial"}, // Multiple fromState leads to one toState
+			ToState:       "paid",              // toState
+			EventStoreVal: "Thanks",            // SMS message
+		},
+		{
+			EventVal:      "deliverEvent",
+			FromState:     []string{"paid"},
+			ToState:       "done",
+			EventStoreVal: "Coming",
+		},
+		{
+			EventVal:      "readyEvent",
+			FromState:     []string{"done", "canceled"},
+			ToState:       "initial",
+			EventStoreVal: "ResetOK",
+		},
+		{
+			EventVal:      "cancelEvent",
+			FromState:     []string{"paid"},
+			ToState:       "canceled",
+			EventStoreVal: "CancelOK",
+		},
+	},
+}
 
 func TestMain(m *testing.M) {
 	m.Run()
@@ -92,7 +150,7 @@ func TestMain(m *testing.M) {
 
 func BenchmarkFSM_Event(b *testing.B) {
 	g, _ := descFac.NewG()
-	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
+	testFSM := NewFsmByG[nodeState, eventVal, edgeVal, nodeVal](g, initial)
 	tests := generateNonErrorTests()
 	tl := len(tests)
 	var err error
@@ -110,8 +168,7 @@ func BenchmarkFSM_Event(b *testing.B) {
 func TestFSM_Event_No_Error(t *testing.T) {
 
 	w := &wrapper{}
-	g, _ := descFac.NewG()
-	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
+	testFSM, _ := NewFsm[nodeState, eventVal, edgeVal, nodeVal](descFac, initial)
 	testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
 		afterStateChange: func(e *Event[nodeState, eventVal, edgeVal, nodeVal]) error {
 			return e.EventE().storeVal(e, w, t) // a sample to run in-config callback functions
@@ -140,10 +197,10 @@ func TestFSM_Event_Contain_Error(t *testing.T) {
 
 	w := &wrapper{}
 	g, _ := descFac.NewG()
-	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
+	testFSM := NewFsmByG[nodeState, eventVal, edgeVal, nodeVal](g, initial)
 	testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
 		afterStateChange: func(e *Event[nodeState, eventVal, edgeVal, nodeVal]) error {
-			return e.EventE().storeVal(e, w, t)
+			return e.EventE().storeVal(e, w, t) // call a custom function in event store value
 		},
 	})
 
@@ -326,12 +383,9 @@ func genTestsContainError() []struct {
 
 func TestFSM_CanTrigger(t *testing.T) {
 
-	g, _ := descFac.NewG()
-	testFSM := NewFsm[nodeState, eventVal, edgeVal, nodeVal](g, initial)
-
 	type args[T, S comparable] struct {
-		eventVal  S
-		forceNext T
+		initial  T
+		eventVal S
 	}
 	tests := []struct {
 		name string
@@ -342,34 +396,81 @@ func TestFSM_CanTrigger(t *testing.T) {
 		{
 			name: "ready",
 			args: args[nodeState, eventVal]{
-				eventVal:  payEvent,
-				forceNext: paid,
+				initial:  initial,
+				eventVal: payEvent,
 			},
 			want: true,
 		},
 		{
 			name: "force done",
 			args: args[nodeState, eventVal]{
-				eventVal:  receiveEvent,
-				forceNext: paid,
+				initial:  paid,
+				eventVal: receiveEvent,
 			},
 			want: false,
 		},
 		{
 			name: "deliver",
 			args: args[nodeState, eventVal]{
-				eventVal:  deliverEvent,
-				forceNext: done,
+				initial:  paid,
+				eventVal: deliverEvent,
 			},
 			want: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			testFSM, _ := NewFsm[nodeState, eventVal, edgeVal, nodeVal](descFac, tt.args.initial)
 			if got := testFSM.CanTrigger(tt.args.eventVal); got != tt.want {
-				t.Errorf("CanTrigger() = %v, want %v", got, tt.want)
+				t.Errorf("CanTrigger()=%v||want=%v", got, tt.want)
 			}
-			testFSM.ForceSetCurrState(tt.args.forceNext)
+		})
+	}
+}
+
+func TestFSM_CanMigrate(t *testing.T) {
+
+	type args[T comparable] struct {
+		initial  T
+		toStatus T
+	}
+	tests := []struct {
+		name string
+		args args[nodeState]
+		want bool
+	}{
+
+		{
+			name: "1",
+			args: args[nodeState]{
+				initial:  initial,
+				toStatus: paid,
+			},
+			want: true,
+		},
+		{
+			name: "2",
+			args: args[nodeState]{
+				initial:  canceled,
+				toStatus: paid,
+			},
+			want: false,
+		},
+		{
+			name: "3",
+			args: args[nodeState]{
+				initial:  paid,
+				toStatus: done,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFSM, _ := NewFsm[nodeState, eventVal, edgeVal, nodeVal](nonLoopFac, tt.args.initial)
+			if got := testFSM.CanMigrate(tt.args.toStatus); got != tt.want {
+				t.Errorf("CanMigrate()=%v||want=%v", got, tt.want)
+			}
 		})
 	}
 }

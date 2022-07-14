@@ -18,6 +18,7 @@ type (
 
 	// CallBacks do something while eventE is triggering
 	CallBacks[T, S comparable, U, V any] struct {
+		onEntry           func(*Event[T, S, U, V]) error
 		beforeStateChange func(*Event[T, S, U, V]) error
 		afterStateChange  func(*Event[T, S, U, V]) error
 		onDefer           func(*Event[T, S, U, V], error)
@@ -30,10 +31,22 @@ type (
 		args     []interface{}     // Args to pass to callbacks
 		eventE   *Edge[T, S, U, V] // Event value. eg. string or integer
 	}
+
+	// NA placeholder of unused type
+	NA struct{}
 )
 
-// NewFsm new a tread-safe FSM
-func NewFsm[T, S comparable, U, V any](g *Graph[T, S, U, V], initState T) *FSM[T, S, U, V] {
+// NewFsm new an FSM by desc
+func NewFsm[T, S comparable, U, V any](desc GraphConfig[T, S, U, V], initState T) (*FSM[T, S, U, V], error) {
+	g, err := desc.NewG()
+	if err != nil {
+		return nil, err
+	}
+	return NewFsmByG(g, initState), nil
+}
+
+// NewFsmByG new an FSM by given graph
+func NewFsmByG[T, S comparable, U, V any](g *Graph[T, S, U, V], initState T) *FSM[T, S, U, V] {
 	return &FSM[T, S, U, V]{
 		g:         g,
 		currState: initState,
@@ -41,6 +54,7 @@ func NewFsm[T, S comparable, U, V any](g *Graph[T, S, U, V], initState T) *FSM[T
 }
 
 // Trigger To trigger an eventE by eventE value
+// Thread safe if f.noSync == false
 func (f *FSM[T, S, U, V]) Trigger(eventVal S, args ...interface{}) (e *Event[T, S, U, V], err error) {
 
 	if !f.noSync {
@@ -55,7 +69,16 @@ func (f *FSM[T, S, U, V]) Trigger(eventVal S, args ...interface{}) (e *Event[T, 
 		args:     args,
 	}
 
+	// Callback on entry
+	if f.callbacks != nil && f.callbacks.onEntry != nil {
+		err = f.callbacks.onEntry(e)
+		if err != nil {
+			return e, err
+		}
+	}
+
 	defer func() {
+		// Callback on defer
 		if f.callbacks != nil && f.callbacks.onDefer != nil {
 			f.callbacks.onDefer(e, err)
 		}
@@ -102,7 +125,6 @@ func (f *FSM[T, S, U, V]) CanTrigger(eventVal S) bool {
 
 // PeekState Peek an edge by eventE value on given state
 func (f *FSM[T, S, U, V]) PeekState(state T, eventVal S) (T, bool) {
-
 	// Try to get next one edge
 	edge, err := f.g.NextEdge(state, eventVal)
 	if err != nil {
@@ -110,19 +132,33 @@ func (f *FSM[T, S, U, V]) PeekState(state T, eventVal S) (T, bool) {
 		return resp, false
 	}
 
-	return edge.ToV().StateVal(), true
+	return edge.toV.stateVal, true
 }
 
-// CanMigrate
-func (f *FSM[T, S, U, V]) CanMigrate(eventVal S) bool {
-	// todo
-	return false
+// CanMigrate judge if current state can migrate to given toState by one or more step
+func (f *FSM[T, S, U, V]) CanMigrate(toState T) bool {
+	return f.g.HasPathTo(f.currState, toState)
 }
 
-// MigratePathTo
-func (f *FSM[T, S, U, V]) MigratePathTo(eventVal S) bool {
-	// todo
-	return false
+func (f *FSM[T, S, U, V]) PrevState() T {
+	return f.prevState
+}
+
+// CurrState Get current state
+func (f *FSM[T, S, U, V]) CurrState() T {
+	return f.currState
+}
+
+// ForceSetCurrState prevState will be overwritten
+// It will not modify f.currEdge. not recommended
+// Thread safe if f.noSync == false
+func (f *FSM[T, S, U, V]) ForceSetCurrState(currState T) {
+	if !f.noSync {
+		f.mutex.Lock()
+		defer f.mutex.Unlock()
+	}
+	f.prevState = f.currState
+	f.currState = currState
 }
 
 // FSM Getter And Setter
@@ -133,39 +169,7 @@ func (f *FSM[T, S, U, V]) G() *Graph[T, S, U, V] {
 
 // SetG Not recommended
 func (f *FSM[T, S, U, V]) SetG(g *Graph[T, S, U, V]) {
-	if !f.noSync {
-		f.mutex.Lock()
-		defer f.mutex.Unlock()
-	}
 	f.g = g
-}
-
-func (f *FSM[T, S, U, V]) PrevState() T {
-	if !f.noSync {
-		f.mutex.Lock()
-		defer f.mutex.Unlock()
-	}
-	return f.prevState
-}
-
-// CurrState Get current state
-func (f *FSM[T, S, U, V]) CurrState() T {
-	if !f.noSync {
-		f.mutex.Lock()
-		defer f.mutex.Unlock()
-	}
-	return f.currState
-}
-
-// ForceSetCurrState prevState will be overwritten
-// it will not modify f.currEdge. not recommended
-func (f *FSM[T, S, U, V]) ForceSetCurrState(currState T) {
-	if !f.noSync {
-		f.mutex.Lock()
-		defer f.mutex.Unlock()
-	}
-	f.prevState = f.currState
-	f.currState = currState
 }
 
 func (f *FSM[T, S, U, V]) CurrEdge() *Edge[T, S, U, V] {
@@ -178,10 +182,6 @@ func (f *FSM[T, S, U, V]) Callbacks() *CallBacks[T, S, U, V] {
 
 // SetCallbacks custom callbacks
 func (f *FSM[T, S, U, V]) SetCallbacks(callbacks *CallBacks[T, S, U, V]) {
-	if !f.noSync {
-		f.mutex.Lock()
-		defer f.mutex.Unlock()
-	}
 	f.callbacks = callbacks
 }
 
