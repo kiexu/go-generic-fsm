@@ -1,4 +1,4 @@
-package gfsm
+package fsm
 
 import (
 	"fmt"
@@ -31,4 +31,12 @@ type InvalidEventErr[T, S comparable] struct {
 
 func (e InvalidEventErr[T, S]) Error() string {
 	return fmt.Sprintf("event %v inappropriate in current state %v", e.Event, e.State)
+}
+
+// VisualPackNotInitErr Visual pack haven't init
+type VisualPackNotInitErr struct {
+}
+
+func (e VisualPackNotInitErr) Error() string {
+	return "visualization package is not initialized"
 }
