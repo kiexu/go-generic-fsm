@@ -12,9 +12,9 @@ go get github.com/kiexu/go-generic-fsm
 
 ## Usage
 
-1. Define FSM with config: `gfsm.DefConfig` based on state migration;
-2. Use `gfsm.NewFsm(config, initStatus)` to New a `gfsm.FSM`;
-3. Call `gfsm.FSM.Trigger()` to trigger event and run callback functions automatically.
+1. Define FSM with config: `fsm.DefConfig` based on state migration;
+2. Use `fsm.NewFsm(config, initStatus)` to New a `fsm.FSM`;
+3. Call `fsm.FSM.Trigger()` to trigger event and run callback functions automatically.
 
 ## Demo
 Let's use an FSM that simulates the online shopping process as a demo.
@@ -35,7 +35,7 @@ flowchart LR
 
 #### Type Definition
 
-Start with `gfsm.DefConfig`, which is the only config struct now:
+Start with `fsm.DefConfig`, which is the only config struct now:
 
 ```go
 // DefConfig Default factory with basic config struct
@@ -46,7 +46,7 @@ type DefConfig[T, S comparable, U, V any] struct {
 }
 ```
 
-You can also develop your own config struct by implementing the `gfsm.Config` interface.
+You can also develop your own config struct by implementing the `fsm.Config` interface.
 
 First, we need to decide the concrete type of the generic `[T, S, U, V]`:
 
@@ -55,9 +55,9 @@ First, we need to decide the concrete type of the generic `[T, S, U, V]`:
 | **T** | State type             | comparable       | `required`      | `string`(E.g "initial")     |
 | **S** | Event type             | comparable       | `required`      | `string`(E.g "payEvent")    |
 | **U** | Object stored in Event | any(interface{}) | `optional`      | `string`(SMS content)       |
-| **V** | Object stored in State | any(interface{}) | `optional`      | `gfsm.NA`(type placeholder) |
+| **V** | Object stored in State | any(interface{}) | `optional`      | `fsm.NA`(type placeholder) |
 
-You can use `gfsm.NA` to temporarily fill unused type just as the `context.TODO`.
+You can use `fsm.NA` to temporarily fill unused type slot as per `context.TODO`.
 
 ```go
 // NA placeholder of unused type
@@ -66,15 +66,15 @@ type NA struct{}
 
 #### Define DefConfig
 
-In this demo we ignore `DefConfig.StatusValMap` because the custom attributes of the `State` are not used (filled by `fsm.NA`).
+In this demo we ignore `DefConfig.StatusValMap` because the custom attributes of the `State` are not used (filled with `fsm.NA`).
 
-Just remember if `U` or `V` is set, they can be easily get both in the callback function and in the event trigger function result.
+Please note if `U` or `V` is set, both of them can be easily accessed in the **callback function** or **event trigger function result**.
 
-Here is our config:
+In below is the final config:
 
 ```go
-var demoFac = &gfsm.DefConfig[string, string, string, gfsm.NA]{
-	DescList: []*gfsm.DescCell[string, string, string, gfsm.NA]{
+var demoFac = &fsm.DefConfig[string, string, string, fsm.NA]{
+	DescList: []*fsm.DescCell[string, string, string, fsm.NA]{
 		{
 			EventVal:      "payEvent",
 			FromState:     []string{"initial"}, 
@@ -108,14 +108,14 @@ var demoFac = &gfsm.DefConfig[string, string, string, gfsm.NA]{
 We initialize with the above config `demoFac` and initial state `"initial"`:
 
 ```go
-demoFsm, err := gfsm.NewFsm[string, string, string, gfsm.NA](demoFac, "initial")
+demoFsm, err := fsm.NewFsm[string, string, string, fsm.NA](demoFac, "initial")
 ```
 
-We successfully get the generic `FSM` **demoFsm** now.
+We get the generic `FSM` **demoFsm** successfully now.
 
 #### Trigger FSM
 
-Use `Trigger()` method to trigger event and check the returning `Event` to check results.
+Use `Trigger()` to trigger event, then check the returning `Event` to check results.
 
 ```go
 event, err := demoFsm.Trigger("payEvent")
@@ -135,6 +135,24 @@ func (e *Event[T, S, U, V]) FromState() (resp T)
 func (e *Event[T, S, U, V]) ToState() (resp T)
 ```
 
+In concurrent environment, it is strongly recommended to use the `State` in the returning `Event`, instead of the `State` of the `FSM`, because the state in the Event is immutable.
+
+#### Other Methods
+
+There are some other practical methods:
+
+```go
+// CanTrigger Whether given eventVal can trigger event
+func (f *FSM[T, S, U, V]) CanTrigger(eventVal S) bool
+
+// PeekState Peek an edge by eventE value on given state
+func (f *FSM[T, S, U, V]) PeekState(state T, eventVal S) (T, bool)
+
+// CanMigrate judge if current state can migrate to given toState by one or more step
+func (f *FSM[T, S, U, V]) CanMigrate(toState T) bool
+
+```
+
 ## Callbacks
 
 ### Ordinary Callbacks Usage
@@ -145,7 +163,7 @@ You can use:
 func (f *FSM[T, S, U, V]) SetCallbacks(callbacks *CallBacks[T, S, U, V])
 ```
 
-to set up callback functions that will be executed in the `Trigger()` method.
+to set up callback functions that will be executed in the `Trigger()`.
 
 ```go
 // CallBacks do something while eventE is triggering
@@ -165,13 +183,13 @@ flowchart LR
     afterStateChange-->onDefer[onDefer\nwill be executed in any case]
 ```
 
-`onEntry` an `onDefer` will be executed in any case and can be used for some work such as resource allocate/release, data statistics, etc.
+`onEntry` an `onDefer` will be executed in any case and can be used for some tasks such as resource allocate/release, data statistics, etc.
 
-Variables can also be passed implicitly to these callback functions if desired.
+Variables can also be passed implicitly to these callback functions if needed.
 
 ### Advanced Callbacks Usage
 
-The callback function can access the **custom attributes** of **any** `Event` and `State` when it is executed. It means that you can define custom attributes as functions to execute, you can integrate your callback function design in the config, and avoid the config scattered in two places.
+The callback function can access the **custom attributes** of **any** `Event` and `State` when it is executed. It means that you can define custom attributes as functions to execute, and you can also integrate your callback function design in one config to avoid multiple configs.
 
 ```go
 testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
@@ -184,12 +202,11 @@ testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
 
 ## Terminology
 
-This `Finite State Machine` module is based on the data structure: Graph, which maps the `state` and `event` of the
-state machine to the `vertex` and `edge` of the Graph.
+This `Finite State Machine` module is based on the data structure: `Graph`. The mapping between `FSM` and `Graph` is: `state` in `FSM` maps to `Vertex` in `Graph`, and `Event` in `FSM` maps to `Edge` in `Graph`.
 
 ### FSM & Graph
 
-In this library, the difference between `Graph` and `FSM` is: `FSM` are **stateful**,`Graph` is **stateless**, `Graph` can be considered as a **Config** of `FSM`.
+In this module, the difference between `Graph` and `FSM` is: `FSM` are **stateful**,`Graph` is **stateless**, `Graph` can be considered as a **Config** of `FSM`.
 
 ```mermaid
 classDiagram
@@ -230,7 +247,7 @@ classDiagram
     Vertex : V storeVal
 ```
 
-### Event | Edge
+### Event & Edge
 
 ```go
 // Edge Event value included
@@ -250,7 +267,7 @@ type Edge[T, S comparable, U, V any] struct {
 | Event's value           | Edge.eventVal    | `S comparable`  | FSM's event value to express business meaning. E.g "take an order"                                         |
 | Event's other attribute | Edge.storeVal    | `U any`         | Define your own data structure to store any other event attribute or callback functions of Event dimension |
 
-### State | Vertex
+### State & Vertex
 
 ```go
 // Vertex idx start with number 0
@@ -272,8 +289,7 @@ type Vertex[T comparable, V any] struct {
 
 ## Contributing
 
-[Kiexu](https://github.com/kiexu)
+[Kie Xu](https://github.com/kiexu)
 
 ## License
-
 MIT

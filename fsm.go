@@ -1,6 +1,7 @@
-package gfsm
+package fsm
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -12,7 +13,7 @@ type (
 		currState T                      // Now state
 		currEdge  *Edge[T, S, U, V]      // For advanced usages
 		callbacks *CallBacks[T, S, U, V] // Callbacks
-		noSync    bool                   // If true, this FSM will not be thread-safe
+		noSync    bool                   // If true, Trigger() and some other methods will not be thread-safe
 		mutex     sync.Mutex             // RW-lock
 	}
 
@@ -31,6 +32,9 @@ type (
 		args     []interface{}     // Args to pass to callbacks
 		eventE   *Edge[T, S, U, V] // Event value. eg. string or integer
 	}
+
+	// VisualGenerator Type of interaction with visualization power pack
+	VisualGenerator func() *FSM[string, string, string, string]
 
 	// NA placeholder of unused type
 	NA struct{}
@@ -149,6 +153,66 @@ func (f *FSM[T, S, U, V]) CurrState() T {
 	return f.currState
 }
 
+// Visualize active visualization
+// Users need to read the result fields assigned into the wrapper by themselves
+// according to specific type of visualization pack
+func (f *FSM[T, S, U, V]) Visualize(wrapper *VisualWrapper) error {
+
+	// check if visual pack imported and initialed
+	if visualizationPack == nil {
+		return &VisualPackNotInitErr{}
+	}
+
+	return visualizationPack.Open(&VisualizeStartWrapper{
+		VisualWrapper: wrapper,
+		VisualGen:     f.getVisualGenerator(),
+	})
+}
+
+// getVisualGenerator transfer FSM to all-string type (without Callbacks) for Visualizer
+// Considering the limited demand for consistency in visualization, no synchronize lock here.
+// Since Graph is immutable, this will hardly cause Graph problems,
+// But it may lead to visual confusion between the fromState and toState in rare cases.
+func (f *FSM[T, S, U, V]) getVisualGenerator() VisualGenerator {
+	return func() *FSM[string, string, string, string] {
+		l := len(f.g.itoV)
+		og := &Graph[string, string, string, string]{
+			adj:  make([]*EdgeCollection[string, string, string, string], l, l), // Adjacency table
+			stoV: make(map[string]*Vertex[string, string], l),                   // State value -> Vertex
+			itoV: make([]*Vertex[string, string], l, l),
+		}
+		for i, v := range f.g.itoV {
+			og.itoV[i] = &Vertex[string, string]{
+				idx:      v.idx,
+				stateVal: fmt.Sprintf("%v", v.stateVal),
+				storeVal: fmt.Sprintf("%v", v.storeVal),
+			}
+		}
+		for i, v := range og.itoV {
+			og.stoV[v.stateVal] = v
+			if og.adj[i] == nil {
+				og.adj[i] = &EdgeCollection[string, string, string, string]{
+					eList: make([]*Edge[string, string, string, string], 0),
+					eFast: make(map[string][]*Edge[string, string, string, string], 0),
+				}
+			}
+			for _, e := range f.g.adj[i].eList {
+				og.adj[i].addE(&Edge[string, string, string, string]{
+					fromV:    og.itoV[e.fromV.idx],
+					toV:      og.itoV[e.toV.idx],
+					eventVal: fmt.Sprintf("%v", e.eventVal),
+					storeVal: fmt.Sprintf("%v", e.storeVal),
+				})
+			}
+		}
+		return &FSM[string, string, string, string]{
+			g:         og,
+			prevState: fmt.Sprintf("%v", f.prevState),
+			currState: fmt.Sprintf("%v", f.currState),
+		}
+	}
+}
+
 // ForceSetCurrState prevState will be overwritten
 // It will not modify f.currEdge. not recommended
 // Thread safe if f.noSync == false
@@ -167,17 +231,12 @@ func (f *FSM[T, S, U, V]) G() *Graph[T, S, U, V] {
 	return f.g
 }
 
-// SetG Not recommended
-func (f *FSM[T, S, U, V]) SetG(g *Graph[T, S, U, V]) {
-	f.g = g
+func (f *FSM[T, S, U, V]) Callbacks() *CallBacks[T, S, U, V] {
+	return f.callbacks
 }
 
 func (f *FSM[T, S, U, V]) CurrEdge() *Edge[T, S, U, V] {
 	return f.currEdge
-}
-
-func (f *FSM[T, S, U, V]) Callbacks() *CallBacks[T, S, U, V] {
-	return f.callbacks
 }
 
 // SetCallbacks custom callbacks

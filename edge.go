@@ -1,4 +1,4 @@
-package gfsm
+package fsm
 
 type (
 	// EdgeCollection fast query supported
@@ -30,6 +30,14 @@ func (c *EdgeCollection[T, S, U, V]) addE(e *Edge[T, S, U, V]) {
 // EdgeByEventVal get eventE value by eventE value
 func (c *EdgeCollection[T, S, U, V]) EdgeByEventVal(eventVal S) []*Edge[T, S, U, V] {
 	return c.eFast[eventVal]
+}
+
+func (c *EdgeCollection[T, S, U, V]) EList() []*Edge[T, S, U, V] {
+	return c.eList
+}
+
+func (c *EdgeCollection[T, S, U, V]) EFast() map[S][]*Edge[T, S, U, V] {
+	return c.eFast
 }
 
 // Edge

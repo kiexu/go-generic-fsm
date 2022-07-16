@@ -1,4 +1,4 @@
-package gfsm
+package fsm
 
 // Vertex idx start with number 0
 type Vertex[T comparable, V any] struct {

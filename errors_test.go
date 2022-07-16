@@ -1,4 +1,4 @@
-package gfsm
+package fsm
 
 import (
 	"reflect"
