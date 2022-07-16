@@ -10,6 +10,28 @@ Go 1.18 or higher is required for generic.
 go get github.com/kiexu/go-generic-fsm 
 ```
 
+## Install Power Pack (Optional)
+
+### Visualization Pack
+
+[Visualization Pack](https://github.com/kiexu/go-generic-fsm-visual-pack) can launch an HTTP service on a user-specified port and return a visualized FSM graph.
+
+```
+go get github.com/kiexu/go-generic-fsm-visual-pack
+```
+
+```go
+_ = fsmv.InitFSMVisualPack(&fsmv.Config{
+    Port:         9527, // Port
+    NativeScript: true, // Users who live in poor network need to set true
+})
+
+// Start one FSM's visualization with Visualize()
+w := &fsm.VisualWrapper{} // After calling Visualize(), you can get full HTTP path from this object
+err = demoFsm.Visualize(w) 
+```
+
+
 ## Usage
 
 1. Define FSM with config: `fsm.DefConfig` based on state migration;
