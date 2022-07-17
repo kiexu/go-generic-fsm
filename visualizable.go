@@ -4,33 +4,38 @@ type Visualizer interface {
 
 	// Open visualization
 	// must be thread-safe
-	Open(*VisualizeStartWrapper) error
+	Open(*VisualOpenPackWrapper) error
 
 	// Close visualization and release resources
 	// must be thread-safe
-	Close(*VisualizeStopWrapper) error
+	Close(*VisualClosePackWrapper) error
 }
 
-// VisualizeStartWrapper contains all input and output params
-type VisualizeStartWrapper struct {
+// VisualOpenPackWrapper contains all input and output params
+type VisualOpenPackWrapper struct {
 	// input and output
-	*VisualWrapper
+	*VisualOpenWrapper
 
 	// FSM VisualGenerator
 	VisualGen VisualGenerator
 }
 
-// VisualWrapper contains all input and output(E.g. io.Reader) params
-// fields should be all optional
-type VisualWrapper struct {
+// VisualOpenWrapper contains all input and output(E.g. io.Reader) params
+type VisualOpenWrapper struct {
 
 	// output
 	Path  *string
-	Token *string // stop Token
+	Token *string // Token
 }
 
-type VisualizeStopWrapper struct {
+type VisualClosePackWrapper struct {
+	// input and output
+	*VisualCloseWrapper
+}
+
+// VisualCloseWrapper contains all input and output(E.g. io.Reader) params of closing visualization.
+type VisualCloseWrapper struct {
 
 	// input
-	Token *string // stop Token
+	Token *string // Token
 }

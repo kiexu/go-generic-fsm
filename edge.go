@@ -12,7 +12,7 @@ type (
 		fromV    *Vertex[T, V] // From vertex
 		toV      *Vertex[T, V] // To vertex
 		eventVal S             // Event value. Not unique
-		storeVal U             // Anything you want. e.g. Real callback function(use CallBacks to invoke)
+		storeVal U             // Anything you want. e.g. Real callback function(use Callbacks to invoke)
 	}
 )
 
