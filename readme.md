@@ -34,6 +34,8 @@ err = demoFsm.OpenVisualization(w) // After calling Visualize(), you can get ful
 After calling OpenVisualization(), make a GET request to URL: `localhost:9527(port in config)` + w.Path, 
 to see the visualized state machine, current state, node index, etc:
 
+e.g. http://localhost:9527/fsm/visualize/8f101b6e-ed2d-420a-b0d8-e7684e130a5a
+
 ```mermaid
 graph RL
     0["state: [paid]<br>idx: [0]<br>[current]"]:::currentBlock -- "[deliverEvent]" --> 2["state: [done]<br>idx: [2]"]:::block
@@ -167,7 +169,7 @@ type Event[T, S comparable, U, V any] struct {
     fSM      *FSM[T, S, U, V]  // Pointer to fSM
     eventVal S                 // raw input event value
     args     []interface{}     // Args to pass to Callbacks
-    eventE   *Edge[T, S, U, V] // Event value. eg. string or integer
+    eventE   *Edge[T, S, U, V] // An Edge for advanced access
 }
 
 // FromState get old State of FSM
@@ -187,7 +189,7 @@ There are some other practical methods:
 // CanTrigger Whether given eventVal can trigger event
 func (f *FSM[T, S, U, V]) CanTrigger(eventVal S) bool
 
-// PeekState Peek an edge by eventE value on given state
+// PeekState Peek a state by prev state and event
 func (f *FSM[T, S, U, V]) PeekState(state T, eventVal S) (T, bool)
 
 // CanMigrate judge if current state can migrate to given toState by one or more step
@@ -225,7 +227,7 @@ flowchart LR
     afterStateChange-->onDefer[onDefer\nwill be executed in any case]
 ```
 
-`onEntry` an `onDefer` will be executed in any case and can be used for some tasks such as resource allocate/release, data statistics, etc.
+`onEntry` and `onDefer` will be executed in any case and can be used for some tasks such as resource allocate/release, data statistics, etc.
 
 A common use is to use pointer types to pass in parameters or get return values from Callbacks
 
@@ -242,9 +244,9 @@ testFSM.SetCallbacks(&Callbacks[nodeState, eventVal, edgeVal, nodeVal]{
 ```
 
 
-## Terminology
+## Principles and Terminology
 
-This `Finite State Machine` module is based on the data structure: `Graph`. The mapping between `FSM` and `Graph` is: `state` in `FSM` maps to `Vertex` in `Graph`, and `Event` in `FSM` maps to `Edge` in `Graph`.
+This `Finite State Machine` module is based on the data structure: `Graph`. The mapping between `FSM` and `Graph` is: `State` in `FSM` maps to `Vertex` in `Graph`, and `Event` in `FSM` maps to `Edge` in `Graph`.
 
 ### FSM & Graph
 
@@ -327,7 +329,12 @@ type Vertex[T comparable, V any] struct {
 | State's value           | Vertex.stateVal | `T comparable` | FSM's unique state value to express business meaning. E.g "paid" or "2"                                    |
 | State's other attribute | Vertex.storeVal | `V any  `      | Define your own data structure to store any other state attribute or callback functions of State dimension |
 
+## Built With
 
+* [go-generic-collection](https://github.com/kiexu/go-generic-collection) - A Java-style generic collection lib of Go
+* [gin](https://github.com/gin-gonic/gin) - The Web Framework used
+* [mermaid](https://github.com/mermaid-js/mermaid) - The JavaScript visualization lib
+* [uuid](https://github.com/google/uuid) - To generate UUID for FSM
 
 ## Contributing
 

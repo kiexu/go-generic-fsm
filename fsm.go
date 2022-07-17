@@ -30,7 +30,7 @@ type (
 		fSM      *FSM[T, S, U, V]  // Pointer to fSM
 		eventVal S                 // raw input event value
 		args     []interface{}     // Args to pass to callbacks
-		eventE   *Edge[T, S, U, V] // Event value. eg. string or integer
+		eventE   *Edge[T, S, U, V] // An Edge for advanced access
 	}
 
 	// VisualGenerator Type of interaction with visualization power pack
@@ -127,7 +127,7 @@ func (f *FSM[T, S, U, V]) CanTrigger(eventVal S) bool {
 	return ok
 }
 
-// PeekState Peek an edge by eventE value on given state
+// PeekState Peek a state by prev state and event
 func (f *FSM[T, S, U, V]) PeekState(state T, eventVal S) (T, bool) {
 	// Try to get next one edge
 	edge, err := f.g.NextEdge(state, eventVal)
