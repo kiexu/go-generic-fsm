@@ -169,7 +169,7 @@ func TestFSM_Event_No_Error(t *testing.T) {
 
 	w := &wrapper{}
 	testFSM, _ := NewFsm[nodeState, eventVal, edgeVal, nodeVal](descFac, initial)
-	testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
+	testFSM.SetCallbacks(&Callbacks[nodeState, eventVal, edgeVal, nodeVal]{
 		afterStateChange: func(e *Event[nodeState, eventVal, edgeVal, nodeVal]) error {
 			return e.EventE().storeVal(e, w, t) // a sample to run in-config callback functions
 		},
@@ -198,7 +198,7 @@ func TestFSM_Event_Contain_Error(t *testing.T) {
 	w := &wrapper{}
 	g, _ := descFac.NewG()
 	testFSM := NewFsmByG[nodeState, eventVal, edgeVal, nodeVal](g, initial)
-	testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
+	testFSM.SetCallbacks(&Callbacks[nodeState, eventVal, edgeVal, nodeVal]{
 		afterStateChange: func(e *Event[nodeState, eventVal, edgeVal, nodeVal]) error {
 			return e.EventE().storeVal(e, w, t) // call a custom function in event store value
 		},

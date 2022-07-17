@@ -12,13 +12,13 @@ type (
 		prevState T                      // Last state
 		currState T                      // Now state
 		currEdge  *Edge[T, S, U, V]      // For advanced usages
-		callbacks *CallBacks[T, S, U, V] // Callbacks
+		callbacks *Callbacks[T, S, U, V] // Callbacks
 		noSync    bool                   // If true, Trigger() and some other methods will not be thread-safe
 		mutex     sync.Mutex             // RW-lock
 	}
 
-	// CallBacks do something while eventE is triggering
-	CallBacks[T, S comparable, U, V any] struct {
+	// Callbacks do something while eventE is triggering
+	Callbacks[T, S comparable, U, V any] struct {
 		onEntry           func(*Event[T, S, U, V]) error
 		beforeStateChange func(*Event[T, S, U, V]) error
 		afterStateChange  func(*Event[T, S, U, V]) error
@@ -30,7 +30,7 @@ type (
 		fSM      *FSM[T, S, U, V]  // Pointer to fSM
 		eventVal S                 // raw input event value
 		args     []interface{}     // Args to pass to callbacks
-		eventE   *Edge[T, S, U, V] // Event value. eg. string or integer
+		eventE   *Edge[T, S, U, V] // An Edge for advanced access
 	}
 
 	// VisualGenerator Type of interaction with visualization power pack
@@ -127,7 +127,7 @@ func (f *FSM[T, S, U, V]) CanTrigger(eventVal S) bool {
 	return ok
 }
 
-// PeekState Peek an edge by eventE value on given state
+// PeekState Peek a state by prev state and event
 func (f *FSM[T, S, U, V]) PeekState(state T, eventVal S) (T, bool) {
 	// Try to get next one edge
 	edge, err := f.g.NextEdge(state, eventVal)
@@ -153,19 +153,35 @@ func (f *FSM[T, S, U, V]) CurrState() T {
 	return f.currState
 }
 
-// Visualize active visualization
-// Users need to read the result fields assigned into the wrapper by themselves
+// OpenVisualization active visualization
+// Users need to read the result fields assigned into the wrapper
 // according to specific type of visualization pack
-func (f *FSM[T, S, U, V]) Visualize(wrapper *VisualWrapper) error {
+// DO NOT forget to call CloseVisualization() if you want FSM to be GC,
+// Because OpenVisualization() implicitly passes the pointer of FSM to visual-pack's static variable
+func (f *FSM[T, S, U, V]) OpenVisualization(wrapper *VisualOpenWrapper) error {
 
 	// check if visual pack imported and initialed
 	if visualizationPack == nil {
 		return &VisualPackNotInitErr{}
 	}
 
-	return visualizationPack.Open(&VisualizeStartWrapper{
-		VisualWrapper: wrapper,
-		VisualGen:     f.getVisualGenerator(),
+	return visualizationPack.Open(&VisualOpenPackWrapper{
+		VisualOpenWrapper: wrapper,
+		VisualGen:         f.getVisualGenerator(),
+	})
+}
+
+// CloseVisualization close visualization and release resources
+// Usage follow specific type of visualization pack
+func (f *FSM[T, S, U, V]) CloseVisualization(wrapper *VisualCloseWrapper) error {
+
+	// check if visual pack imported and initialed
+	if visualizationPack == nil {
+		return &VisualPackNotInitErr{}
+	}
+
+	return visualizationPack.Close(&VisualClosePackWrapper{
+		VisualCloseWrapper: wrapper,
 	})
 }
 
@@ -231,7 +247,7 @@ func (f *FSM[T, S, U, V]) G() *Graph[T, S, U, V] {
 	return f.g
 }
 
-func (f *FSM[T, S, U, V]) Callbacks() *CallBacks[T, S, U, V] {
+func (f *FSM[T, S, U, V]) Callbacks() *Callbacks[T, S, U, V] {
 	return f.callbacks
 }
 
@@ -240,7 +256,7 @@ func (f *FSM[T, S, U, V]) CurrEdge() *Edge[T, S, U, V] {
 }
 
 // SetCallbacks custom callbacks
-func (f *FSM[T, S, U, V]) SetCallbacks(callbacks *CallBacks[T, S, U, V]) {
+func (f *FSM[T, S, U, V]) SetCallbacks(callbacks *Callbacks[T, S, U, V]) {
 	f.callbacks = callbacks
 }
 
@@ -253,29 +269,29 @@ func (f *FSM[T, S, U, V]) SetNoSync(noSync bool) {
 	f.noSync = noSync
 }
 
-// CallBacks Getter And Setter
+// Callbacks Getter And Setter
 
-func (c *CallBacks[T, S, U, V]) BeforeStateChange() func(*Event[T, S, U, V]) error {
+func (c *Callbacks[T, S, U, V]) BeforeStateChange() func(*Event[T, S, U, V]) error {
 	return c.beforeStateChange
 }
 
-func (c *CallBacks[T, S, U, V]) SetBeforeStateChange(beforeStateChange func(*Event[T, S, U, V]) error) {
+func (c *Callbacks[T, S, U, V]) SetBeforeStateChange(beforeStateChange func(*Event[T, S, U, V]) error) {
 	c.beforeStateChange = beforeStateChange
 }
 
-func (c *CallBacks[T, S, U, V]) AfterStateChange() func(*Event[T, S, U, V]) error {
+func (c *Callbacks[T, S, U, V]) AfterStateChange() func(*Event[T, S, U, V]) error {
 	return c.afterStateChange
 }
 
-func (c *CallBacks[T, S, U, V]) SetAfterStateChange(afterStateChange func(*Event[T, S, U, V]) error) {
+func (c *Callbacks[T, S, U, V]) SetAfterStateChange(afterStateChange func(*Event[T, S, U, V]) error) {
 	c.afterStateChange = afterStateChange
 }
 
-func (c *CallBacks[T, S, U, V]) OnDefer() func(*Event[T, S, U, V], error) {
+func (c *Callbacks[T, S, U, V]) OnDefer() func(*Event[T, S, U, V], error) {
 	return c.onDefer
 }
 
-func (c *CallBacks[T, S, U, V]) SetOnDefer(onDefer func(*Event[T, S, U, V], error)) {
+func (c *Callbacks[T, S, U, V]) SetOnDefer(onDefer func(*Event[T, S, U, V], error)) {
 	c.onDefer = onDefer
 }
 

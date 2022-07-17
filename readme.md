@@ -22,15 +22,37 @@ go get github.com/kiexu/go-generic-fsm-visual-pack
 
 ```go
 _ = fsmv.InitFSMVisualPack(&fsmv.Config{
-    Port:         9527, // Port
-    NativeScript: true, // Users who live in poor network need to set true
+    Port:         9527, // Customizable port
+    NativeScript: true, // Users who live in poor network may need to set true
 })
 
 // Start one FSM's visualization with Visualize()
-w := &fsm.VisualWrapper{} // After calling Visualize(), you can get full HTTP path from this object
-err = demoFsm.Visualize(w) 
+w := &fsm.VisualOpenWrapper{} 
+err = demoFsm.OpenVisualization(w) // After calling Visualize(), you can get full HTTP path from w
 ```
 
+After calling OpenVisualization(), make a GET request to URL: `localhost:9527(port in config)` + w.Path, 
+to see the visualized state machine, current state, node index, etc:
+
+e.g. http://localhost:9527/fsm/visualize/8f101b6e-ed2d-420a-b0d8-e7684e130a5a
+
+```mermaid
+graph RL
+    0["state: [paid]<br>idx: [0]<br>[current]"]:::currentBlock -- "[deliverEvent]" --> 2["state: [done]<br>idx: [2]"]:::block
+    0["state: [paid]<br>idx: [0]<br>[current]"]:::currentBlock -- "[cancelEvent]" --> 3["state: [canceled]<br>idx: [3]"]:::block
+    1["state: [initial]<br>idx: [1]<br>[previous]"]:::block -- "[payEvent]" --> 0["state: [paid]<br>idx: [0]<br>[current]"]:::currentBlock
+    2["state: [done]<br>idx: [2]"]:::block -- "[readyEvent]" --> 1["state: [initial]<br>idx: [1]<br>[previous]"]:::block
+    3["state: [canceled]<br>idx: [3]"]:::block -- "[readyEvent]" --> 1["state: [initial]<br>idx: [1]<br>[previous]"]:::block
+classDef block fill:#fdf9ee,stroke:#939391,stroke-width:2px
+classDef currentBlock fill:#eee5f8,stroke:#939391,stroke-width:3px
+
+```
+
+**DO NOT** forget to call CloseVisualization() to release resources if you want FSM to be GC.
+
+```go
+err = demoFsm.CloseVisualization(&fsm.VisualCloseWrapper{Token: w.Token})
+```
 
 ## Usage
 
@@ -72,11 +94,11 @@ You can also develop your own config struct by implementing the `fsm.Config` int
 
 First, we need to decide the concrete type of the generic `[T, S, U, V]`:
 
-|       | Desc                   | Generic type     | Required or not | Type in this demo           |
-|-------|------------------------|------------------|-----------------|-----------------------------|
-| **T** | State type             | comparable       | `required`      | `string`(E.g "initial")     |
-| **S** | Event type             | comparable       | `required`      | `string`(E.g "payEvent")    |
-| **U** | Object stored in Event | any(interface{}) | `optional`      | `string`(SMS content)       |
+|       | Desc                   | Generic type     | Required or not | Type in this demo          |
+|-------|------------------------|------------------|-----------------|----------------------------|
+| **T** | State type             | comparable       | `required`      | `string`(E.g "initial")    |
+| **S** | Event type             | comparable       | `required`      | `string`(E.g "payEvent")   |
+| **U** | Object stored in Event | any(interface{}) | `optional`      | `string`(SMS content)      |
 | **V** | Object stored in State | any(interface{}) | `optional`      | `fsm.NA`(type placeholder) |
 
 You can use `fsm.NA` to temporarily fill unused type slot as per `context.TODO`.
@@ -146,8 +168,8 @@ event, err := demoFsm.Trigger("payEvent")
 type Event[T, S comparable, U, V any] struct {
     fSM      *FSM[T, S, U, V]  // Pointer to fSM
     eventVal S                 // raw input event value
-    args     []interface{}     // Args to pass to callbacks
-    eventE   *Edge[T, S, U, V] // Event value. eg. string or integer
+    args     []interface{}     // Args to pass to Callbacks
+    eventE   *Edge[T, S, U, V] // An Edge for advanced access
 }
 
 // FromState get old State of FSM
@@ -167,7 +189,7 @@ There are some other practical methods:
 // CanTrigger Whether given eventVal can trigger event
 func (f *FSM[T, S, U, V]) CanTrigger(eventVal S) bool
 
-// PeekState Peek an edge by eventE value on given state
+// PeekState Peek a state by prev state and event
 func (f *FSM[T, S, U, V]) PeekState(state T, eventVal S) (T, bool)
 
 // CanMigrate judge if current state can migrate to given toState by one or more step
@@ -182,14 +204,14 @@ func (f *FSM[T, S, U, V]) CanMigrate(toState T) bool
 You can use:
 
 ```go
-func (f *FSM[T, S, U, V]) SetCallbacks(callbacks *CallBacks[T, S, U, V])
+func (f *FSM[T, S, U, V]) SetCallbacks(Callbacks *Callbacks[T, S, U, V])
 ```
 
 to set up callback functions that will be executed in the `Trigger()`.
 
 ```go
-// CallBacks do something while eventE is triggering
-type CallBacks[T, S comparable, U, V any] struct {
+// Callbacks do something while eventE is triggering
+type Callbacks[T, S comparable, U, V any] struct {
     onEntry           func(*Event[T, S, U, V]) error    // will be executed in any case
     beforeStateChange func(*Event[T, S, U, V]) error
     afterStateChange  func(*Event[T, S, U, V]) error
@@ -205,16 +227,16 @@ flowchart LR
     afterStateChange-->onDefer[onDefer\nwill be executed in any case]
 ```
 
-`onEntry` an `onDefer` will be executed in any case and can be used for some tasks such as resource allocate/release, data statistics, etc.
+`onEntry` and `onDefer` will be executed in any case and can be used for some tasks such as resource allocate/release, data statistics, etc.
 
-Variables can also be passed implicitly to these callback functions if needed.
+A common use is to use pointer types to pass in parameters or get return values from Callbacks
 
 ### Advanced Callbacks Usage
 
 The callback function can access the **custom attributes** of **any** `Event` and `State` when it is executed. It means that you can define custom attributes as functions to execute, and you can also integrate your callback function design in one config to avoid multiple configs.
 
 ```go
-testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
+testFSM.SetCallbacks(&Callbacks[nodeState, eventVal, edgeVal, nodeVal]{
     afterStateChange: func(e *Event[nodeState, eventVal, edgeVal, nodeVal]) error {
         return e.EventE().storeVal(e, w, t) // call a custom function in event store value
     },
@@ -222,9 +244,9 @@ testFSM.SetCallbacks(&CallBacks[nodeState, eventVal, edgeVal, nodeVal]{
 ```
 
 
-## Terminology
+## Principles and Terminology
 
-This `Finite State Machine` module is based on the data structure: `Graph`. The mapping between `FSM` and `Graph` is: `state` in `FSM` maps to `Vertex` in `Graph`, and `Event` in `FSM` maps to `Edge` in `Graph`.
+This `Finite State Machine` module is based on the data structure: `Graph`. The mapping between `FSM` and `Graph` is: `State` in `FSM` maps to `Vertex` in `Graph`, and `Event` in `FSM` maps to `Edge` in `Graph`.
 
 ### FSM & Graph
 
@@ -245,7 +267,7 @@ classDiagram
     FSM : *Graph[T, S, U, V] g
     FSM : T prevState
     FSM : T currState 
-    FSM : *CallBacks[T, S, U, V] callbacks
+    FSM : *Callbacks[T, S, U, V] Callbacks
 
     class Graph~T,S,U,V~
     Graph : [][]*EdgeCollection[T, S, U, V] adj
@@ -277,7 +299,7 @@ type Edge[T, S comparable, U, V any] struct {
     fromV    *Vertex[T, V] // From vertex
     toV      *Vertex[T, V] // To vertex
     eventVal S             // Event value. Not unique
-    storeVal U             // Anything you want. e.g. Real callback function(use CallBacks to invoke)
+    storeVal U             // Anything you want. e.g. Real callback function(use Callbacks to invoke)
 }
 ```
 
@@ -307,7 +329,12 @@ type Vertex[T comparable, V any] struct {
 | State's value           | Vertex.stateVal | `T comparable` | FSM's unique state value to express business meaning. E.g "paid" or "2"                                    |
 | State's other attribute | Vertex.storeVal | `V any  `      | Define your own data structure to store any other state attribute or callback functions of State dimension |
 
+## Built With
 
+* [go-generic-collection](https://github.com/kiexu/go-generic-collection) - A Java-style generic collection lib of Go
+* [gin](https://github.com/gin-gonic/gin) - The Web Framework used
+* [mermaid](https://github.com/mermaid-js/mermaid) - The JavaScript visualization lib
+* [uuid](https://github.com/google/uuid) - To generate UUID for FSM
 
 ## Contributing
 
