@@ -51,11 +51,39 @@ func (g *Graph[T, S, U, V]) HasPathTo(fromState T, toState T) bool {
 	return len(g.AllPathTo(fromState, toState)) > 0
 }
 
-// AllPathTo Find all path from fromState to toState
+// AllPathTo Find all path from fromState to toState. (fromState, toState]
 func (g *Graph[T, S, U, V]) AllPathTo(fromState T, toState T) [][]int {
 	resp, err := g.pathTo(fromState, toState, true)
 	if err != nil {
 		return make([][]int, 0)
+	}
+	return resp
+}
+
+// AllPathEdgesTo Find all Edges from fromState to toState
+func (g *Graph[T, S, U, V]) AllPathEdgesTo(fromState T, toState T) [][]*Edge[T, S, U, V] {
+	resp := make([][]*Edge[T, S, U, V], 0)
+	paths := g.AllPathTo(fromState, toState)
+	if len(paths) == 0 {
+		return resp
+	}
+	for i := 0; i < len(paths); i += 1 {
+		path := paths[i]
+		if len(path) < 1 {
+			continue
+		}
+		edges := make([]*Edge[T, S, U, V], 0)
+		eCollection := g.Adj()[g.VertexByState(fromState).idx]
+		for j := 0; j < len(path); j += 1 {
+			for k := 0; k < len(eCollection.eList); k += 1 {
+				if eCollection.eList[k].toV.idx == path[j] {
+					edges = append(edges, eCollection.eList[k])
+					eCollection = g.Adj()[path[j]]
+					break
+				}
+			}
+		}
+		resp = append(resp, edges)
 	}
 	return resp
 }

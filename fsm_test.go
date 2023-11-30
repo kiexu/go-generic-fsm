@@ -1,7 +1,10 @@
 package fsm
 
 import (
+	"fmt"
+	"gotest.tools/v3/assert"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -142,6 +145,28 @@ var demoFac = &DefConfig[string, string, string, NA]{
 			EventStoreVal: "CancelOK",
 		},
 	},
+}
+
+func assertSliceEquals[T any](t *testing.T, a [][]T, b [][]T) {
+	assert.Equal(t, len(a), len(b))
+	l := len(a)
+	aStrs := make([]string, 0, l)
+	bStrs := make([]string, 0, l)
+	for i := 0; i < l; i += 1 {
+		aStrs = append(aStrs, tSumSli(a[i]))
+		bStrs = append(bStrs, tSumSli(b[i]))
+	}
+	sort.Strings(aStrs)
+	sort.Strings(bStrs)
+	assert.DeepEqual(t, aStrs, bStrs)
+}
+
+func tSumSli[T any](input []T) string {
+	resp := ""
+	for i := 0; i < len(input); i += 1 {
+		resp += fmt.Sprintf("%v||", input[i])
+	}
+	return resp
 }
 
 func TestMain(m *testing.M) {
