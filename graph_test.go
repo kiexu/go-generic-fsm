@@ -342,7 +342,7 @@ func TestGraph_pathTo_2(t *testing.T) {
 	}
 }
 
-func TestGraph_AllPathEdgesTo(t *testing.T) {
+func TestGraph_AllPathEdgesTo_0(t *testing.T) {
 
 	g, _ := nonLoopFac.NewG()
 

@@ -116,36 +116,36 @@ var (
 			},
 		},
 	}
-)
 
-var demoFac = &DefConfig[string, string, string, NA]{
-	DescList: []*DescCell[string, string, string, NA]{
-		{
-			EventVal:      "payEvent",
-			FromState:     []string{"initial"}, // Multiple fromState leads to one toState
-			ToState:       "paid",              // toState
-			EventStoreVal: "Thanks",            // SMS message
+	demoFac = &DefConfig[string, string, string, NA]{
+		DescList: []*DescCell[string, string, string, NA]{
+			{
+				EventVal:      "payEvent",
+				FromState:     []string{"initial"}, // Multiple fromState leads to one toState
+				ToState:       "paid",              // toState
+				EventStoreVal: "Thanks",            // SMS message
+			},
+			{
+				EventVal:      "deliverEvent",
+				FromState:     []string{"paid"},
+				ToState:       "done",
+				EventStoreVal: "Coming",
+			},
+			{
+				EventVal:      "readyEvent",
+				FromState:     []string{"done", "canceled"},
+				ToState:       "initial",
+				EventStoreVal: "ResetOK",
+			},
+			{
+				EventVal:      "cancelEvent",
+				FromState:     []string{"paid"},
+				ToState:       "canceled",
+				EventStoreVal: "CancelOK",
+			},
 		},
-		{
-			EventVal:      "deliverEvent",
-			FromState:     []string{"paid"},
-			ToState:       "done",
-			EventStoreVal: "Coming",
-		},
-		{
-			EventVal:      "readyEvent",
-			FromState:     []string{"done", "canceled"},
-			ToState:       "initial",
-			EventStoreVal: "ResetOK",
-		},
-		{
-			EventVal:      "cancelEvent",
-			FromState:     []string{"paid"},
-			ToState:       "canceled",
-			EventStoreVal: "CancelOK",
-		},
-	},
-}
+	}
+)
 
 func assertSliceEquals[T any](t *testing.T, a [][]T, b [][]T) {
 	assert.Equal(t, len(a), len(b))

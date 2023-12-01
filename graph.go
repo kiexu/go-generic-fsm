@@ -99,7 +99,7 @@ func (g *Graph[T, S, U, V]) AllPathEdgesTo(fromState T, toState T) [][]*Edge[T, 
 }
 
 // pathTo Find (all) path
-// ring: resp with maximum of one loop
+// ring: each Edge is traversed at most once
 func (g *Graph[T, S, U, V]) pathTo(fromState T, toState T, optFlag int) ([][]int, error) {
 	fromV := g.VertexByState(fromState)
 	if fromV == nil {
@@ -111,16 +111,18 @@ func (g *Graph[T, S, U, V]) pathTo(fromState T, toState T, optFlag int) ([][]int
 	}
 
 	wrapper := &pathWrapper{}
-	visited := make([]int8, len(g.itoV))
-	visited[fromV.idx] = 1
+	visited := newVisited[T, S, U, V](len(g.itoV))
+	visited.vIncr(fromV.idx)
 	st := stack.NewStack[int]()
 	if g.adj[fromV.idx] != nil {
-		for _, edges := range g.adj[fromV.idx].eList {
-			visited[edges.toV.idx] += 1
-			st.Push(edges.toV.idx)
+		for _, edge := range g.adj[fromV.idx].eList {
+			visited.vIncr(edge.toV.idx)
+			visited.eIncr(edge)
+			st.Push(edge.toV.idx)
 			g.pathDfs(st, toV.idx, visited, wrapper, optFlag)
 			st.Pop()
-			visited[edges.toV.idx] -= 1
+			visited.vDecr(edge.toV.idx)
+			visited.eDecr(edge)
 		}
 	}
 
@@ -128,7 +130,7 @@ func (g *Graph[T, S, U, V]) pathTo(fromState T, toState T, optFlag int) ([][]int
 }
 
 // pathDfs Find (all) path
-func (g *Graph[T, S, U, V]) pathDfs(st *stack.Stack[int], toIdx int, visited []int8, w *pathWrapper, optFlag int) (abort bool) {
+func (g *Graph[T, S, U, V]) pathDfs(st *stack.Stack[int], toIdx int, visited *visited[T, S, U, V], w *pathWrapper, optFlag int) (abort bool) {
 
 	if st.IsEmpty() {
 		return
@@ -148,23 +150,25 @@ func (g *Graph[T, S, U, V]) pathDfs(st *stack.Stack[int], toIdx int, visited []i
 	if g.adj[idx] == nil {
 		return
 	}
-	var maxVisit int8
-	if optFlag&PathOptRing > 0 {
-		maxVisit = 2
-	} else {
-		maxVisit = 1
-	}
-	for _, edges := range g.adj[idx].eList {
-		if visited[edges.toV.idx] >= maxVisit {
-			continue
+	for _, edge := range g.adj[idx].eList {
+		if optFlag&PathOptRing > 0 {
+			if visited.eCnt(edge) >= 1 {
+				continue
+			}
+		} else {
+			if visited.vCnt(edge.toV.idx) >= 1 {
+				continue
+			}
 		}
-		visited[edges.toV.idx] += 1
-		st.Push(edges.toV.idx)
+		visited.vIncr(edge.toV.idx)
+		visited.eIncr(edge)
+		st.Push(edge.toV.idx)
 		if g.pathDfs(st, toIdx, visited, w, optFlag) {
 			return true
 		}
 		st.Pop()
-		visited[edges.toV.idx] -= 1
+		visited.vDecr(edge.toV.idx)
+		visited.eDecr(edge)
 	}
 
 	return
