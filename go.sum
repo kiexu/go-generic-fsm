@@ -1,7 +1,5 @@
 github.com/google/go-cmp v0.5.5 h1:Khx7svrCpmxxtHBq5j2mp/xVjsi8hQMfNLvJFAlrGgU=
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
-github.com/kiexu/go-generic-collection v0.3.0 h1:i0oXhfq6n1wTi99nSaJfi0oedJh4hY1dEodqlwS58t4=
-github.com/kiexu/go-generic-collection v0.3.0/go.mod h1:2Q7BZWAkl4qxTo+jS3BZ3e+DliAp5MW/uYH/Swla7kA=
 github.com/kiexu/go-generic-collection v0.3.1 h1:9E2dKezYzPUYGu0Rywp9og/Lw6LMqxtp8FFCOFiNcG8=
 github.com/kiexu/go-generic-collection v0.3.1/go.mod h1:2Q7BZWAkl4qxTo+jS3BZ3e+DliAp5MW/uYH/Swla7kA=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
