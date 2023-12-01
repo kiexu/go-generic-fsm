@@ -145,35 +145,6 @@ var (
 			},
 		},
 	}
-
-	complexFac = &DefConfig[nodeState, eventVal, edgeVal, nodeVal]{
-		DescList: []*DescCell[nodeState, eventVal, edgeVal, nodeVal]{
-			{
-				EventVal:      payEvent,
-				FromState:     []nodeState{initial, paid}, // self loop
-				ToState:       paid,
-				EventStoreVal: commonEdgeVal,
-			},
-			{
-				EventVal:      deliverEvent,
-				FromState:     []nodeState{paid},
-				ToState:       delivering,
-				EventStoreVal: commonEdgeVal,
-			},
-			{
-				EventVal:      receiveEvent,
-				FromState:     []nodeState{delivering},
-				ToState:       done,
-				EventStoreVal: commonEdgeVal,
-			},
-			{
-				EventVal:      cancelEvent,
-				FromState:     []nodeState{paid, delivering},
-				ToState:       canceled,
-				EventStoreVal: commonEdgeVal,
-			},
-		},
-	}
 )
 
 func assertSliceEquals[T any](t *testing.T, a [][]T, b [][]T) {
