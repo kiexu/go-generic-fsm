@@ -33,6 +33,19 @@ func wantIdxTestFormatter(indexes [][]int) (resp []string) {
 	return resp
 }
 
+func wantEdgeEventTestFormatter(edges [][]*Edge[nodeState, eventVal, edgeVal, nodeVal]) (resp [][]eventVal) {
+	resp = make([][]eventVal, 0)
+	for i := 0; i < len(edges); i += 1 {
+		edge := edges[i]
+		events := make([]eventVal, 0)
+		for j := 0; j < len(edge); j += 1 {
+			events = append(events, edge[j].eventVal)
+		}
+		resp = append(resp, events)
+	}
+	return resp
+}
+
 func TestGraph_pathTo_1(t *testing.T) {
 
 	g, _ := descFac.NewG()
@@ -41,6 +54,7 @@ func TestGraph_pathTo_1(t *testing.T) {
 		fromState T
 		toState   T
 		allPath   bool
+		ring      bool
 	}
 	tests := []struct {
 		name    string
@@ -54,6 +68,7 @@ func TestGraph_pathTo_1(t *testing.T) {
 				fromState: initial,
 				toState:   paid,
 				allPath:   true,
+				ring:      false,
 			},
 			want: [][]nodeState{
 				{paid},
@@ -65,17 +80,33 @@ func TestGraph_pathTo_1(t *testing.T) {
 				fromState: initial,
 				toState:   done,
 				allPath:   true,
+				ring:      false,
 			},
 			want: [][]nodeState{
 				{paid, delivering, done},
 			},
 		},
 		{
-			name: "initial-initial",
+			name: "initial-initial-ring",
 			args: args[nodeState]{
 				fromState: initial,
 				toState:   initial,
 				allPath:   true,
+				ring:      true,
+			},
+			want: [][]nodeState{
+				{paid, delivering, done, initial},
+				{paid, canceled, initial},
+				{paid, delivering, canceled, initial},
+			},
+		},
+		{
+			name: "initial-initial-one",
+			args: args[nodeState]{
+				fromState: initial,
+				toState:   initial,
+				allPath:   false,
+				ring:      true,
 			},
 			want: [][]nodeState{
 				{paid, delivering, done, initial},
@@ -89,6 +120,7 @@ func TestGraph_pathTo_1(t *testing.T) {
 				fromState: initial,
 				toState:   canceled,
 				allPath:   true,
+				ring:      false,
 			},
 			want: [][]nodeState{
 				{paid, canceled},
@@ -101,6 +133,7 @@ func TestGraph_pathTo_1(t *testing.T) {
 				fromState: initial,
 				toState:   canceled,
 				allPath:   false,
+				ring:      false,
 			},
 			// pick one
 			want: [][]nodeState{
@@ -111,7 +144,14 @@ func TestGraph_pathTo_1(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := g.pathTo(tt.args.fromState, tt.args.toState, tt.args.allPath)
+			var opt int
+			if tt.args.allPath {
+				opt |= PathOptAllPath
+			}
+			if tt.args.ring {
+				opt |= PathOptRing
+			}
+			got, err := g.pathTo(tt.args.fromState, tt.args.toState, opt)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("pathTo() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -141,6 +181,7 @@ func TestGraph_pathTo_2(t *testing.T) {
 		fromState T
 		toState   T
 		allPath   bool
+		ring      bool
 	}
 	tests := []struct {
 		name    string
@@ -154,6 +195,7 @@ func TestGraph_pathTo_2(t *testing.T) {
 				fromState: initial,
 				toState:   paid,
 				allPath:   true,
+				ring:      false,
 			},
 			want: [][]nodeState{
 				{paid},
@@ -165,9 +207,23 @@ func TestGraph_pathTo_2(t *testing.T) {
 				fromState: initial,
 				toState:   done,
 				allPath:   true,
+				ring:      false,
 			},
 			want: [][]nodeState{
 				{paid, delivering, done},
+			},
+		},
+		{
+			name: "initial-done-ring",
+			args: args[nodeState]{
+				fromState: initial,
+				toState:   done,
+				allPath:   true,
+				ring:      true,
+			},
+			want: [][]nodeState{
+				{paid, delivering, done},
+				{paid, paid, delivering, done},
 			},
 		},
 		{
@@ -176,6 +232,7 @@ func TestGraph_pathTo_2(t *testing.T) {
 				fromState: initial,
 				toState:   initial,
 				allPath:   true,
+				ring:      true,
 			},
 			want: [][]nodeState{},
 		},
@@ -185,6 +242,7 @@ func TestGraph_pathTo_2(t *testing.T) {
 				fromState: paid,
 				toState:   paid,
 				allPath:   true,
+				ring:      false,
 			},
 			want: [][]nodeState{
 				{paid},
@@ -196,6 +254,17 @@ func TestGraph_pathTo_2(t *testing.T) {
 				fromState: canceled,
 				toState:   paid,
 				allPath:   true,
+				ring:      false,
+			},
+			want: [][]nodeState{},
+		},
+		{
+			name: "cancel-paid-ring",
+			args: args[nodeState]{
+				fromState: canceled,
+				toState:   paid,
+				allPath:   true,
+				ring:      true,
 			},
 			want: [][]nodeState{},
 		},
@@ -205,10 +274,26 @@ func TestGraph_pathTo_2(t *testing.T) {
 				fromState: initial,
 				toState:   canceled,
 				allPath:   true,
+				ring:      false,
 			},
 			want: [][]nodeState{
 				{paid, canceled},
 				{paid, delivering, canceled},
+			},
+		},
+		{
+			name: "initial-cancel-ring",
+			args: args[nodeState]{
+				fromState: initial,
+				toState:   canceled,
+				allPath:   true,
+				ring:      true,
+			},
+			want: [][]nodeState{
+				{paid, paid, canceled},
+				{paid, canceled},
+				{paid, delivering, canceled},
+				{paid, paid, delivering, canceled},
 			},
 		},
 		{
@@ -217,6 +302,7 @@ func TestGraph_pathTo_2(t *testing.T) {
 				fromState: initial,
 				toState:   canceled,
 				allPath:   false,
+				ring:      false,
 			},
 			// pick one
 			want: [][]nodeState{
@@ -227,7 +313,14 @@ func TestGraph_pathTo_2(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := g.pathTo(tt.args.fromState, tt.args.toState, tt.args.allPath)
+			var opt int
+			if tt.args.allPath {
+				opt |= PathOptAllPath
+			}
+			if tt.args.ring {
+				opt |= PathOptRing
+			}
+			got, err := g.pathTo(tt.args.fromState, tt.args.toState, opt)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("pathTo() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -245,6 +338,92 @@ func TestGraph_pathTo_2(t *testing.T) {
 				assert.Check(t, cmp.Len(gotList, 1))
 				assert.Check(t, cmp.Contains(wantList, gotList[0]))
 			}
+		})
+	}
+}
+
+func TestGraph_AllPathEdgesTo(t *testing.T) {
+
+	g, _ := nonLoopFac.NewG()
+
+	type args[T comparable] struct {
+		fromState T
+		toState   T
+	}
+	tests := []struct {
+		name    string
+		args    args[nodeState]
+		want    [][]eventVal
+		wantErr bool
+	}{
+		{
+			name: "initial-paid",
+			args: args[nodeState]{
+				fromState: initial,
+				toState:   paid,
+			},
+			want: [][]eventVal{
+				{payEvent},
+			},
+		},
+		{
+			name: "initial-done",
+			args: args[nodeState]{
+				fromState: initial,
+				toState:   done,
+			},
+			want: [][]eventVal{
+				{payEvent, deliverEvent, receiveEvent},
+				{payEvent, payEvent, deliverEvent, receiveEvent},
+			},
+		},
+		{
+			name: "initial-initial",
+			args: args[nodeState]{
+				fromState: initial,
+				toState:   initial,
+			},
+			want: [][]eventVal{},
+		},
+		{
+			name: "paid-paid",
+			args: args[nodeState]{
+				fromState: paid,
+				toState:   paid,
+			},
+			want: [][]eventVal{
+				{payEvent},
+			},
+		},
+		{
+			name: "cancel-paid",
+			args: args[nodeState]{
+				fromState: canceled,
+				toState:   paid,
+			},
+			want: [][]eventVal{},
+		},
+		{
+			name: "initial-cancel",
+			args: args[nodeState]{
+				fromState: initial,
+				toState:   canceled,
+			},
+			want: [][]eventVal{
+				{payEvent, cancelEvent},
+				{payEvent, payEvent, cancelEvent},
+				{payEvent, deliverEvent, cancelEvent},
+				{payEvent, payEvent, deliverEvent, cancelEvent},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := g.AllPathEdgesTo(tt.args.fromState, tt.args.toState)
+			gotList := wantEdgeEventTestFormatter(got)
+			t.Logf("AllPathEdgesTo()||wantList=%v||gotList=%v", tt.want, gotList)
+			assert.Check(t, cmp.Len(gotList, len(tt.want)))
+			assertSliceEquals(t, gotList, tt.want)
 		})
 	}
 }
